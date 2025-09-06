@@ -1,0 +1,14 @@
+@media print {
+    .sidebar .header, .print-button, .buttons {
+      display: none;
+    }
+    .service-form {
+      width: 100%;
+      padding: 0;
+      margin: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+  }

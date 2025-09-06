@@ -1,0 +1,45 @@
+class PlantDTO {
+  constructor(plant, categories = []) {
+    this._id = plant._id;
+    this.plantId = plant.plantId;
+    this.orgUserName = plant.orgUserId.name;
+    this.plantName = plant.plantName;
+    this.pumpIotDeviceId = plant.pumpIotDeviceId;
+    this.address = plant.address;
+    this.cityId = plant.cityId._id;
+    this.cityName = plant.cityId.cityName;
+    this.managerId = plant.managerId?._id;
+    this.managerName = plant.managerId?.userId.name;
+    this.image1Name = plant.image1Name;
+    this.image2Name = plant.image2Name;
+    this.image3Name = plant.image3Name;
+    this.image4Name = plant.image4Name;
+    this.image5Name = plant.image5Name;
+    this.image6Name = plant.image6Name;
+    this.image7Name = plant.image7Name;
+    this.image8Name = plant.image8Name;
+    this.image9Name = plant.image9Name;
+    this.image10Name = plant.image10Name;
+    this.image1 = plant.image1;
+    this.image2 = plant.image2;
+    this.image3 = plant.image3;
+    this.image4 = plant.image4;
+    this.image5 = plant.image5;
+    this.image6 = plant.image6;
+    this.image7 = plant.image7;
+    this.image8 = plant.image8;
+    this.image9 = plant.image9;
+    this.image10 = plant.image10;
+    this.status = plant.status;
+    this.plantImage = plant.plantImage;
+    this.layouts = plant.layouts;
+    this.createdAt = plant.createdAt;
+    this.categories = categories;
+    this.headerPressure = plant.headerPressure;
+    this.mainWaterStorage = plant.mainWaterStorage;
+    this.primeWaterTankStorage = plant.primeWaterTankStorage;
+    this.dieselStorage = plant.dieselStorage;
+    this.pressureUnit = plant.pressureUnit;
+  }
+}
+module.exports = PlantDTO;

@@ -1,0 +1,86 @@
+.calendar-event-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin: auto;
+}
+
+.react-calendar {
+  width: 100%;
+  border: 1px solid #bdbdbd;
+  border-radius: 4px;
+  padding: 16px;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.2);
+}
+.event-item {
+  background-color: #f0f0f0;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  border-left: 4px solid #007bff;
+}
+
+.services-tab-scroll-container {
+  max-height: 70vh;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.services-tab-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge, and Firefox */
+.services-tab-scroll-container {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Remove underscore or default decoration from weekdays */
+.react-calendar__month-view__weekdays__weekday {
+  font-size: small;
+  color: #4635b1;
+  /* margin-bottom: 10px; */
+  text-decoration: none !important;
+  border-bottom: none !important;
+  font-weight: bold !important;
+}
+
+/* Optional: If there's a default `underline` or `text-decoration`, remove it */
+.react-calendar__month-view__weekdays abbr {
+  text-decoration: none !important;
+  border-bottom: none !important;
+}
+/* Set the size of each date box */
+.react-calendar__tile {
+  width: 50px !important;
+  height: 65px !important;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  border-radius: 20px;
+}
+
+/* Optional: Customize hover effect */
+.react-calendar__tile:hover {
+  background-color: #f0f0f0;
+}
+
+/* Style the calendar header (month & year navigation) */
+.react-calendar__navigation {
+  background-color: #393e46; /* Change to any color you want */
+  color: white !important;
+  font-size: 0.85rem;
+  font-weight: bold;
+  border-radius: 8px;
+}
+
+/* Style the navigation arrows */
+.react-calendar__navigation button {
+  color: white !important;
+}
+
+/* Optional: Change hover effect */
+.react-calendar__navigation button:hover {
+  background-color: #0056b3;
+}
