@@ -1,0 +1,16 @@
+
+Types: `feat`, `fix`, `chore`, `docs`, `style`, `refactor`, `perf`, `test`
+
+Examples:
+- `feat(auth): add OAuth login`
+- `fix(api): handle null pointer`
+
+## Pull Requests
+Before submitting a PR:
+- [ ] Linked to an issue (if applicable)
+- [ ] Tests added/updated
+- [ ] Linting passes
+- [ ] CI is green
+- [ ] Reviewer assigned
+
+👉 Keep PRs small and focused. Large PRs should be broken down.
