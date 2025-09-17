@@ -1,6 +1,9 @@
 # dependencies
 node_modules/
-package-lock.json
+
+# lockfiles (keep these in git, so don’t ignore them)
+# package-lock.json
+#*/package-lock.json
 
 # builds
 dist/

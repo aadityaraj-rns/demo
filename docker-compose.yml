@@ -1,0 +1,78 @@
+# docker-compose.yml
+# Note: no top-level "version:" field (Compose v2+ ignores it)
+services:
+  mongo:
+    image: mongo:6
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: "${MONGO_INITDB_ROOT_USERNAME}"
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGO_INITDB_ROOT_PASSWORD}"
+      MONGO_INITDB_DATABASE: "${MONGO_DB_NAME}"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - backendnet
+    healthcheck:
+      test: ["CMD", "mongosh", "--username", "${MONGO_INITDB_ROOT_USERNAME}", "--password", "${MONGO_INITDB_ROOT_PASSWORD}", "--authenticationDatabase", "admin", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+
+  backend:
+    build: ./firedesk-backend
+    restart: unless-stopped
+    depends_on:
+      - mongo
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+
+      # App expects this name locally; set it here so the container code sees it
+      MONGODB_CONNECTION_STRING: "mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongo:27017/${MONGO_DB_NAME}?authSource=admin"
+
+      # Keep existing MONGO_URI too (optional, for compatibility)
+      MONGO_URI: "mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongo:27017/${MONGO_DB_NAME}?authSource=admin"
+
+      # application secrets (sourced from .env)
+      JWT_SECRET: "${JWT_SECRET}"
+      ACCESS_TOKEN_SECRET: "${ACCESS_TOKEN_SECRET}"
+      REFRESH_TOKEN_SECRET: "${REFRESH_TOKEN_SECRET}"
+
+      # optional third-party credentials (sourced from .env)
+      CLOUDINARY_API_KEY: "${CLOUDINARY_API_KEY}"
+      CLOUDINARY_API_SECRET: "${CLOUDINARY_API_SECRET}"
+      CLOUDINARY_CLOUD_NAME: "${CLOUDINARY_CLOUD_NAME}"
+
+      SMS_AUTH_KEY: "${SMS_AUTH_KEY}"
+      SMS_AUTH_TOKEN: "${SMS_AUTH_TOKEN}"
+      SMS_SENDERID: "${SMS_SENDERID}"
+    ports:
+      - "5002:5000"     # host:container
+    networks:
+      - backendnet
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  frontend:
+    build:
+      context: ./firedesk-frontend
+      # optional: pass build-arg to inject Vite variable at build time
+      args:
+       VITE_INTERNAL_API_PATH: "${VITE_INTERNAL_API_PATH}"  # optional override
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5001:80"    # host:container
+    networks:
+      - backendnet
+volumes:
+  mongo-data:
+
+networks:
+  backendnet:
