@@ -21,7 +21,7 @@ services:
 
 
   backend:
-    build: ./firedesk-backend
+    build: ./nextgen-firedesk-backend
     restart: unless-stopped
     depends_on:
       - mongo
@@ -60,7 +60,7 @@ services:
 
   frontend:
     build:
-      context: ./firedesk-frontend
+      context: ./nextgen-firedesk-frontend
       # optional: pass build-arg to inject Vite variable at build time
       args:
        VITE_INTERNAL_API_PATH: "${VITE_INTERNAL_API_PATH}"  # optional override
