@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "406738909292",
+    "project_id": "firedesk-4c38e",
+    "storage_bucket": "firedesk-4c38e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:406738909292:android:c255c8b57a23ad0004c049",
+        "android_client_info": {
+          "package_name": "com.liestung.firedesk"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDCynhO9JrSKYYzWxEIGH9lMbkoHXJ2yis"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
