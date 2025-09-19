@@ -1,18 +1,64 @@
-# dependencies
+# -----------------------
+# Node.js (backend & frontend)
+# -----------------------
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 
-# lockfiles (keep these in git, so don’t ignore them)
-# package-lock.json
-#*/package-lock.json
-
-# builds
+# Builds
 dist/
 build/
+coverage/
 
-# environment
+# -----------------------
+# Environment files
+# -----------------------
 .env
 .env.local
+.env.*.local
 
-# misc
+# -----------------------
+# Flutter / Dart (mobile)
+# -----------------------
+firedesk-mobile/.dart_tool/
+firedesk-mobile/.flutter-plugins
+firedesk-mobile/.flutter-plugins-dependencies
+firedesk-mobile/.pub-cache/
+firedesk-mobile/.pub/
+firedesk-mobile/build/
+firedesk-mobile/ios/Pods/
+firedesk-mobile/ios/Runner.xcworkspace/
+firedesk-mobile/android/.gradle/
+firedesk-mobile/android/app/build/
+firedesk-mobile/android/local.properties
+
+# Signing keys / certs (DO NOT COMMIT)
+firedesk-mobile/**/*.jks
+firedesk-mobile/**/*.keystore
+firedesk-mobile/**/*.p12
+firedesk-mobile/**/*.pfx
+firedesk-mobile/**/*.mobileprovision
+
+# -----------------------
+# Docker
+# -----------------------
+.dockerignore
+
+# -----------------------
+# IDE/editor
+# -----------------------
+.vscode/
+.idea/
+*.swp
+
+# -----------------------
+# OS
+# -----------------------
 .DS_Store
-coverage/
+Thumbs.db
+
+# -----------------------
+# Logs
+# -----------------------
+*.log

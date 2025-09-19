@@ -1,0 +1,2 @@
+D:/flutter_projects/firedesk/android/app/.cxx/RelWithDebInfo/4x1f3b58/x86/CMakeFiles/edit_cache.dir
+D:/flutter_projects/firedesk/android/app/.cxx/RelWithDebInfo/4x1f3b58/x86/CMakeFiles/rebuild_cache.dir

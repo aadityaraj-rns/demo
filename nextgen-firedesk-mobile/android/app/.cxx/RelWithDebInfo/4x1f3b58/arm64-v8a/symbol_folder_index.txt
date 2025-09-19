@@ -1,0 +1,1 @@
+D:\flutter_projects\firedesk\build\app\intermediates\cxx\RelWithDebInfo\4x1f3b58\obj\arm64-v8a
