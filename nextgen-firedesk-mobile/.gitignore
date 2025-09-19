@@ -1,0 +1,82 @@
+# -----------------------
+# OS & Editor files
+# -----------------------
+.DS_Store
+Thumbs.db
+*.swp
+*.log
+*.pyc
+.atom/
+.history
+.svn/
+
+# IntelliJ / Android Studio
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# VS Code (optional, keep if you don’t want to share workspace settings)
+.vscode/
+
+# -----------------------
+# Flutter / Dart / Pub
+# -----------------------
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+**/doc/api/
+**/ios/Flutter/.last_build_id
+
+# -----------------------
+# Android
+# -----------------------
+**/android/.gradle/
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+**/android/local.properties
+
+# -----------------------
+# iOS
+# -----------------------
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+ios/Pods/
+ios/Runner.xcworkspace/
+ios/.generated/
+
+# -----------------------
+# macOS
+# -----------------------
+macos/Flutter/ephemeral/
+macos/Pods/
+
+# -----------------------
+# Windows
+# -----------------------
+windows/flutter/ephemeral/
+
+# -----------------------
+# Linux
+# -----------------------
+linux/flutter/ephemeral/
+
+# -----------------------
+# Keys / Certificates (DO NOT COMMIT)
+# -----------------------
+**/*.jks
+**/*.keystore
+**/*.p12
+**/*.pfx
+**/*.mobileprovision
+
+# -----------------------
+# Build artifacts
+# -----------------------
+app.*.symbols
+app.*.map.json

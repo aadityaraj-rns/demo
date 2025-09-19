@@ -1,0 +1,2 @@
+C:/Users/Aideagig/flutter_projects/firedesk/android/app/.cxx/Debug/5m3611tf/armeabi-v7a/CMakeFiles/edit_cache.dir
+C:/Users/Aideagig/flutter_projects/firedesk/android/app/.cxx/Debug/5m3611tf/armeabi-v7a/CMakeFiles/rebuild_cache.dir
