@@ -1,12 +1,13 @@
 const Joi = require("joi");
-const Product = require("../../models/admin/product");
+const { Product, Category } = require("../../models");
 
-const mongodbIdPattern = /^[0-9a-fA-F]{24}$/;
+// UUID pattern for PostgreSQL
+const uuidPattern = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
 const productController = {
   async create(req, res, next) {
     const createProductSchema = Joi.object({
-      categoryId: Joi.string().pattern(mongodbIdPattern).required(),
+      categoryId: Joi.string().pattern(uuidPattern).required(),
       productName: Joi.string().required(),
       testFrequency: Joi.string()
         .valid(
@@ -23,7 +24,7 @@ const productController = {
             type: Joi.string().required(),
             subType: Joi.array().items(Joi.string()).optional(),
             description: Joi.string().required(),
-            image: Joi.string().uri().required(),
+            image: Joi.string().uri().optional().allow(''),
           })
         )
         .min(1)
@@ -39,24 +40,35 @@ const productController = {
       req.body;
 
     try {
-      await Product.create({
+      const product = await Product.create({
         categoryId,
         productName,
         testFrequency,
         variants: productVariants,
       });
 
-      return res.status(200).json({ message: "Product created successfully" });
+      return res.status(200).json({ 
+        message: "Product created successfully",
+        product 
+      });
     } catch (error) {
       return next(error);
     }
   },
   async getAll(req, res, next) {
     try {
-      const products = await Product.find({})
-        .populate({ path: "categoryId", select: "categoryName" })
-        .sort({ createdAt: -1 });
-      return res.json({ products });
+      const products = await Product.findAll({
+        attributes: ['id', 'productName', 'categoryId', 'testFrequency', 'variants', 'status'],
+        include: [
+          {
+            model: Category,
+            as: 'category',
+            attributes: ['categoryName', 'id']
+          }
+        ],
+        order: [['createdAt', 'DESC']]
+      });
+      return res.json({ products, success: true });
     } catch (error) {
       return next(error);
     }
@@ -64,11 +76,13 @@ const productController = {
   async getByCategory(req, res, next) {
     const categoryId = req.params.categoryId;
     try {
-      const products = await Product.find({
-        categoryId,
-        status: "Active",
-      }).select("productName productId testFrequency variants");
-      // const productDto = products.map((product) => new ProductDTO(product));
+      const products = await Product.findAll({
+        where: {
+          categoryId,
+          status: "Active",
+        },
+        attributes: ['productName', 'id', 'testFrequency', 'variants']
+      });
       return res.json({ products });
     } catch (error) {
       return next(error);
@@ -76,8 +90,8 @@ const productController = {
   },
   async update(req, res, next) {
     const updateSchema = Joi.object({
-      _id: Joi.string().pattern(mongodbIdPattern).required(),
-      categoryId: Joi.string().pattern(mongodbIdPattern).required(),
+      id: Joi.string().pattern(uuidPattern).required(),
+      categoryId: Joi.string().pattern(uuidPattern).required(),
       productName: Joi.string().required(),
       status: Joi.string().valid("Active", "Deactive").required(),
       testFrequency: Joi.string()
@@ -92,11 +106,10 @@ const productController = {
       productVariants: Joi.array()
         .items(
           Joi.object({
-            _id: Joi.string().pattern(mongodbIdPattern).optional(), // present if editing
             type: Joi.string().required(),
             subType: Joi.array().items(Joi.string()).optional(),
             description: Joi.string().required(),
-            image: Joi.string().uri().required(),
+            image: Joi.string().uri().optional().allow(''),
           })
         )
         .min(1)
@@ -108,7 +121,7 @@ const productController = {
     if (error) return next(error);
 
     const {
-      _id,
+      id,
       categoryId,
       productName,
       testFrequency,
@@ -116,18 +129,46 @@ const productController = {
       productVariants,
     } = req.body;
 
-    const product = await Product.findOneAndUpdate(
-      { _id },
-      {
-        categoryId,
-        productName,
-        testFrequency,
-        variants: productVariants,
-        status,
-      }
-    );
+    try {
+      const [updated] = await Product.update(
+        {
+          categoryId,
+          productName,
+          testFrequency,
+          variants: productVariants,
+          status,
+        },
+        {
+          where: { id },
+        }
+      );
 
-    return res.json({ product });
+      if (!updated) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      const product = await Product.findByPk(id);
+      return res.json({ product });
+    } catch (error) {
+      return next(error);
+    }
+  },
+  async delete(req, res, next) {
+    const productId = req.params.id;
+
+    try {
+      const deleted = await Product.destroy({
+        where: { id: productId }
+      });
+
+      if (!deleted) {
+        return res.status(404).json({ message: "Product not found" });
+      }
+
+      return res.json({ message: "Product deleted successfully" });
+    } catch (error) {
+      return next(error);
+    }
   },
 };
 

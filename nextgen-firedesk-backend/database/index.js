@@ -1,44 +1,51 @@
 // firedesk-backend/database/index.js
-/* const mongoose = require("mongoose");
+const { Sequelize } = require("sequelize");
+const { DATABASE_URL, DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD } = require("../config/index");
 
-const dbConnect = () => {
-  const mongoUri = process.env.MONGODB_CONNECTION_STRING || process.env.MONGO_URI;
+let sequelize;
 
-  if (!mongoUri) {
-    console.error("❌ No MongoDB connection string found. Set MONGODB_CONNECTION_STRING or MONGO_URI.");
+if (DATABASE_URL) {
+  // Production (Heroku/Render style)
+  sequelize = new Sequelize(DATABASE_URL, {
+    dialect: "postgres",
+    protocol: "postgres",
+    logging: false,
+    dialectOptions: {
+      ssl: process.env.NODE_ENV === "production"
+        ? { require: true, rejectUnauthorized: false }
+        : false,
+    },
+  });
+} else {
+  // Local connection
+  sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
+    host: DB_HOST,
+    port: DB_PORT,
+    dialect: "postgres",
+    logging: false,
+  });
+}
+
+const dbConnect = async () => {
+  try {
+    await sequelize.authenticate();
+    console.log(`✅ PostgreSQL connected: ${DB_NAME}@${DB_HOST}:${DB_PORT}`);
+
+    // Import all models + setup associations
+    const db = require("../models/index");
+    if (db.defineAssociations) {
+      db.defineAssociations();
+    }
+
+    // Sync all models
+    await sequelize.sync({ alter: true });
+    console.log("✅ Database synchronized");
+
+    return sequelize;
+  } catch (err) {
+    console.error("❌ PostgreSQL connection error:", err);
     process.exit(1);
   }
-
-  return mongoose
-    .connect(mongoUri) // ⚡ No need for deprecated options in Mongoose 6+
-    .then(() => console.log(`✅ MongoDB connected using URI: ${mongoUri}`))
-    .catch((err) => {
-      console.error("❌ MongoDB connection error:", err);
-      process.exit(1);
-    });
-}; */
-// MOdified to use the indx.js from config
-const mongoose = require("mongoose");
-const { MONGODB_CONNECTION_STRING } = require("../config/index");
-
-const dbConnect = () => {
-  const mongoUri = MONGODB_CONNECTION_STRING;
-
-  if (!mongoUri) {
-    console.error("❌ No MongoDB connection string found in config.");
-    process.exit(1);
-  }
-
-  return mongoose
-    .connect(mongoUri) // ⚡ Mongoose 6+ doesn’t need extra options
-    .then(() => {
-      console.log(`✅ MongoDB connected to host: ${mongoose.connection.host}`);
-    })
-    .catch((err) => {
-      console.error("❌ MongoDB connection error:", err);
-      process.exit(1);
-    });
 };
 
-// 👉 Export the function directly so server.js can just call dbConnect()
-module.exports = dbConnect;
+module.exports = { sequelize, dbConnect };

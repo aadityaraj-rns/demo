@@ -1,37 +1,23 @@
-const { required } = require("joi");
-const { Schema, default: mongoose, SchemaTypes } = require("mongoose");
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../../../database/index");
 
-const auditSchema = new Schema(
-  {
-    orgUserId: {
-      type: SchemaTypes.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    nameOfAudit: {
-      type: String,
-      required: true,
-    },
-    plantId: {
-      type: SchemaTypes.ObjectId,
-      ref: "Plant",
-      required: true,
-    },
-    auditorName: {
-      type: String,
-      required: true,
-    },
-    description: {
-      type: String,
-      required: true,
-    },
-    file: {
-      type: String,
-      required: true,
-    },
+const Audit = sequelize.define("Audit", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
   },
-  {
-    timestamps: true,
-  }
-);
-module.exports = mongoose.model("Audit", auditSchema, "audits");
+  // TODO: Add specific fields based on original Mongoose model
+  data: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    defaultValue: {},
+  },
+}, {
+  tableName: "audits",
+  timestamps: true,
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+});
+
+module.exports = Audit;

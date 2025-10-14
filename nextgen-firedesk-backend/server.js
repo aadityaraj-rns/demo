@@ -2,7 +2,7 @@
 const express = require("express");
 const http = require("http"); // For creating server
 const { Server } = require("socket.io"); // Socket.IO server
-const dbConnect = require("./database/index");
+const { dbConnect, sequelize } = require("./database/index"); // ADD sequelize import here
 const { PORT } = require("./config/index");
 const router = require("./routes/index");
 const errorHandler = require("./middleware/errorHandler");
@@ -11,6 +11,7 @@ const cors = require("cors");
 const path = require("path");
 require("./schedular");
 const registerSocketHandlers = require("./sockets");
+const createDefaultRoles = require("./scripts/seedRoles"); // ADD this import
 
 const app = express();
 const server = http.createServer(app); // Create HTTP server from Express
@@ -58,18 +59,28 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', service: 'firedesk-backend' });
 });
 
-
-
 // Routes
 app.use(router);
 
-// Database connection
-dbConnect();
+// Database connection and server start
+const startServer = async () => {
+  try {
+    await dbConnect();
+    
+    // Create default roles after database connection
+    await createDefaultRoles();
+    
+    // Error handler
+    app.use(errorHandler);
+    
+    // Start server
+    server.listen(PORT, () =>
+      console.log(`🚀 Backend is running with Socket.IO on port: ${PORT}`)
+    );
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
 
-// Error handler
-app.use(errorHandler);
-
-// Start server
-server.listen(PORT, () =>
-  console.log(`🚀 Backend is running with Socket.IO on port: ${PORT}`)
-);
+startServer();

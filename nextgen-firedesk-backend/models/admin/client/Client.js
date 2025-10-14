@@ -1,117 +1,113 @@
-const { required } = require("joi");
-const mongoose = require("mongoose");
-const { Schema } = mongoose;
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../../../database/index");
 
-const serviceDetailsSchema = new Schema(
+const Client = sequelize.define(
+  "Client",
   {
-    startDate: { type: Date, required: false },
-    endDate: { type: Date, required: false },
-    serviceFrequency: {
-      inspection: {
-        type: String,
-        enum: [
-          "Weekly",
-          "Fortnight",
-          "Monthly",
-          "Quarterly",
-          "Half Year",
-          "Yearly",
-        ],
-        required: false,
-      },
-      testing: {
-        type: String,
-        enum: [
-          "Weekly",
-          "Fortnight",
-          "Monthly",
-          "Quarterly",
-          "Half Year",
-          "Yearly",
-        ],
-        required: false,
-      },
-      maintenance: {
-        type: String,
-        enum: [
-          "Weekly",
-          "Fortnight",
-          "Monthly",
-          "Quarterly",
-          "Half Year",
-          "Yearly",
-        ],
-        required: false,
-      },
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
     },
-  },
-  { _id: false }
-);
-
-const categoryHistorySchema = new Schema(
-  {
-    editedAt: { type: Date, default: Date.now },
-    editedBy: {
-      type: mongoose.SchemaTypes.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    changes: { type: String },
-  },
-  { _id: false }
-);
-
-const categorySchema = new Schema(
-  {
-    categoryId: {
-      type: mongoose.SchemaTypes.ObjectId,
-      ref: "Category",
-      required: true,
-    },
-    serviceDetails: serviceDetailsSchema,
-    categoryHistory: [categoryHistorySchema],
-  },
-  { _id: false }
-);
-
-const clientSchema = new Schema(
-  {
     userId: {
-      type: mongoose.SchemaTypes.ObjectId,
-      ref: "User",
-      required: true,
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: "users",
+        key: "id",
+      },
     },
-    branchName: { type: String, required: false },
+    branchName: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     cityId: {
-      type: mongoose.SchemaTypes.ObjectId,
-      ref: "City",
-      required: true,
+      type: DataTypes.UUID,
+      allowNull: false,
+      references: {
+        model: "cities",
+        key: "id",
+      },
     },
     industryId: {
-      type: mongoose.SchemaTypes.ObjectId,
-      ref: "Industry",
-      required: false,
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: "industries",
+        key: "id",
+      },
     },
     clientType: {
-      type: String,
-      enum: ["partner", "organization"],
-      requited: true,
+      type: DataTypes.ENUM("partner", "organization"),
+      allowNull: false,
     },
-    categories: [categorySchema],
-    gst: { type: String, required: false },
-    pincode: { type: String, required: false },
-    address: { type: String, required: false },
-    headerImage: { type: String, required: false },
-    footerImage: { type: String, required: false },
+    categories: {
+      type: DataTypes.JSONB,
+      allowNull: true,
+      defaultValue: [],
+      validate: {
+        customValidator(value) {
+          if (!Array.isArray(value)) throw new Error("Categories must be an array");
+          value.forEach((category) => {
+            if (!category.categoryId) throw new Error("Each category must have a categoryId");
+            if (category.serviceDetails) {
+              const { serviceFrequency } = category.serviceDetails;
+              const validFrequencies = ["Weekly", "Fortnight", "Monthly", "Quarterly", "Half Year", "Yearly"];
+              if (serviceFrequency) {
+                ["inspection", "testing", "maintenance"].forEach((type) => {
+                  if (serviceFrequency[type] && !validFrequencies.includes(serviceFrequency[type])) {
+                    throw new Error(`Invalid ${type} frequency`);
+                  }
+                });
+              }
+            }
+            if (category.categoryHistory && !Array.isArray(category.categoryHistory)) {
+              throw new Error("Category history must be an array");
+            }
+          });
+        },
+      },
+    },
+    gst: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    pincode: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    address: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    headerImage: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
+    footerImage: {
+      type: DataTypes.STRING,
+      allowNull: true,
+    },
     createdByPartnerUserId: {
-      type: mongoose.SchemaTypes.ObjectId,
-      ref: "User",
-      required: false,
+      type: DataTypes.UUID,
+      allowNull: true,
+      references: {
+        model: "users",
+        key: "id",
+      },
+    },
+    // New optional fields
+    mongo_id: {
+      type: DataTypes.STRING(24),
+      allowNull: true,
     },
   },
   {
+    tableName: "clients",
     timestamps: true,
+    createdAt: "createdAt",
+    updatedAt: "updatedAt",
   }
 );
 
-module.exports = mongoose.model("Client", clientSchema, "clients");
+module.exports = Client;

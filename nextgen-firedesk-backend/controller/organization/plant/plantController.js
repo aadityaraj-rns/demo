@@ -1,411 +1,473 @@
-const Joi = require("joi");
-const uploadOnClodinary = require("../../../utils/cloudinary");
-const Plant = require("../../../models/organization/plant/Plant");
-const PlantDTO = require("../../../dto/PlantDTO");
-const getFormattedCategories = require("../helperfunctions/getFormattedCategories");
-const Manager = require("../../../models/organization/manager/Manager");
-const uploadOnCloudinary = require("../../../utils/cloudinary");
-const city = require("../../../models/admin/masterData/city");
+// 
 
-const mongodbIdPattern = /^[0-9a-fA-F]{24}$/;
+// firedesk-backend/controllers/plantController.js
+const Joi = require("joi");
+const { Plant, City, State, Industry, Manager, User } = require("../models");
 
 const plantController = {
   async getAll(req, res, next) {
     try {
-      let orgUserId = req.user._id;
-      let plantQuery = { orgUserId };
+      let orgUserId = req.user.id;
+      let whereCondition = { orgUserId };
+      
+      // Handle manager case
       if (req.user.userType === "manager") {
-        const org = await Manager.findOne({ userId: req.user._id })
-          .populate({
-            path: "orgUserId",
-            select: "userType name phone email loginID",
-          })
-          .select("orgUserId");
-        orgUserId = org.orgUserId._id;
-        plantQuery = { managerId: org._id };
-      }
-      const allPlants = await Plant.find(plantQuery)
-        .sort({ createdAt: -1 })
-        .populate("cityId")
-        .populate("orgUserId")
-        .populate({
-          path: "managerId",
-          populate: "userId",
+        const manager = await Manager.findOne({ 
+          where: { userId: req.user.id }
         });
-      const categories = await getFormattedCategories(orgUserId);
-
-      const plantDto = allPlants.map(
-        (plant) => new PlantDTO(plant, categories)
-      );
-
-      return res.json({ allPlants: plantDto });
-    } catch (error) {
-      return next(error);
-    }
-  },
-  async getAllPlantNames(req, res, next) {
-    try {
-      let plantQuery = {
-        orgUserId: req.user._id,
-        status: "Active",
-      };
-      if (req.user.userType === "manager") {
-        const org = await Manager.findOne({ userId: req.user._id })
-          .populate({
-            path: "orgUserId",
-            select: "userType name phone email loginID",
-          })
-          .select("orgUserId");
-        plantQuery = {
-          orgUserId: org.orgUserId._id,
-          managerId: org._id,
-          status: "Active",
-        };
+        
+        if (manager) {
+          orgUserId = manager.orgUserId;
+          whereCondition.managerId = manager.id;
+        }
       }
 
-      const allPlants = await Plant.find(plantQuery)
-        .populate({
-          path: "managerId",
-          select: "userId",
-          populate: { path: "userId", select: "name phone" },
-        })
-        .select("plantName plantId layouts plantImage");
-      return res.json({ allPlants });
-    } catch (error) {
-      return next(error);
-    }
-  },
-  async editPlantImage(req, res, next) {
-    try {
-      const { _id } = req.body;
-      const plant = await Plant.findById(_id);
-      if (!plant) {
-        return res.status(404).json({ message: "Plant not found" });
-      }
-      const files = req.files || {};
-      const baths = {
-        plantImagePath: files.plantImage ? files.plantImage[0].path : undefined,
-      };
-      let imageUrl;
-      if (baths.plantImagePath) {
-        const uploadResult = await uploadOnCloudinary(baths.plantImagePath);
-        imageUrl = uploadResult?.secure_url;
-        plant.plantImage = imageUrl;
-      }
-
-      await plant.save();
-      return res.json({ imageUrl: plant.plantImage });
-    } catch (error) {
-      return res.json(error);
-    }
-  },
-  async addLayoutInplant(req, res, next) {
-    try {
-      const { _id, plantLayoutName, plantLayoutImage } = req.body;
-      if ((!_id, !plantLayoutName)) {
-        return res
-          .status(400)
-          .json({ message: "plantLayoutName and _id of plant is required" });
-      }
-      const plant = await Plant.findById(_id);
-      if (!plant) {
-        return res.status(404).json({ message: "Plant not found" });
-      }
-      // const files = req.files || {};
-      // if (!files.plantLayoutImage) {
-      //   return res
-      //     .status(400)
-      //     .json({ message: "plantLayoutImage is required" });
-      // }
-      // const baths = {
-      //   plantLayoutImagePath: files.plantLayoutImage
-      //     ? files.plantLayoutImage[0].path
-      //     : undefined,
-      // };
-      // let plantLayoutImage;
-      // if (baths.plantLayoutImagePath) {
-      //   const uploadResult = await uploadOnCloudinary(
-      //     baths.plantLayoutImagePath
-      //   );
-      //   plantLayoutImage = uploadResult?.secure_url;
-      plant.layouts.push({
-        layoutName: plantLayoutName,
-        layoutImage: plantLayoutImage,
+      const plants = await Plant.findAll({
+        where: whereCondition,
+        order: [['createdAt', 'DESC']],
+        include: [
+          {
+            model: City,
+            as: 'city',
+            include: [{
+              model: State,
+              as: 'state'
+            }]
+          },
+          {
+            model: State,
+            as: 'state'
+          },
+          {
+            model: Industry,
+            as: 'industry'
+          },
+          {
+            model: Manager,
+            as: 'manager',
+            include: [{
+              model: User,
+              as: 'user',
+              attributes: ['id', 'name', 'email']
+            }]
+          }
+        ]
       });
-      // }
 
-      await plant.save();
-      return res.json({ imageUrl: plant.layouts });
+      return res.status(200).json({ 
+        success: true,
+        plants 
+      });
     } catch (error) {
-      return next(error);
+      console.error('Get plants error:', error);
+      return res.status(500).json({ 
+        success: false,
+        message: 'Failed to fetch plants',
+        error: error.message 
+      });
     }
   },
+
   async create(req, res, next) {
     try {
       const plantCreateSchema = Joi.object({
-        pumpIotDeviceId: Joi.string().optional(),
+        // Basic Info
+        plantId: Joi.string().optional().allow(''),
         plantName: Joi.string().required(),
         address: Joi.string().required(),
-        cityId: Joi.string().pattern(mongodbIdPattern).required(),
-        managerId: Joi.string().pattern(mongodbIdPattern).optional(),
-        headerPressure: Joi.string().optional(),
-        pressureUnit: Joi.string()
-          .valid("Kg/Cm2", "PSI", "MWC", "Bar")
-          .allow("")
-          .optional(),
-        mainWaterStorage: Joi.string().optional(),
-        primeWaterTankStorage: Joi.string().optional(),
-        dieselStorage: Joi.string().optional(),
-      });
+        address2: Joi.string().optional().allow(''),
+        cityId: Joi.string().uuid().required(),
+        stateId: Joi.string().uuid().required(),
+        zipCode: Joi.string().optional().allow(''),
+        gstNo: Joi.string().optional().allow(''),
+        industryId: Joi.string().uuid().required(),
+        managerId: Joi.string().uuid().optional().allow('', null),
+        plantImage: Joi.string().optional().allow(''),
+        
+        // Premises Details
+        mainBuildings: Joi.number().optional(),
+        subBuildings: Joi.number().optional(),
+        buildings: Joi.array().optional(),
+        totalPlantArea: Joi.number().optional(),
+        totalBuildUpArea: Joi.number().optional(),
+        entrances: Joi.array().optional(),
+        
+        // DG Details
+        dgAvailable: Joi.string().optional().allow(''),
+        dgQuantity: Joi.number().optional(),
+        
+        // Staircase Details
+        staircaseAvailable: Joi.string().optional().allow(''),
+        staircaseQuantity: Joi.number().optional(),
+        staircaseType: Joi.string().optional().allow(''),
+        staircaseWidth: Joi.number().optional(),
+        staircaseFireRating: Joi.string().optional().allow(''),
+        staircasePressurization: Joi.string().optional().allow(''),
+        staircaseEmergencyLighting: Joi.string().optional().allow(''),
+        staircaseLocation: Joi.string().optional().allow(''),
+        
+        // Lift Details
+        liftAvailable: Joi.string().optional().allow(''),
+        liftQuantity: Joi.number().optional(),
+        
+        // Fire Safety - Tank Capacities
+        headerPressure: Joi.string().optional().allow(''),
+        pressureUnit: Joi.string().valid("Kg/Cm2", "PSI", "MWC", "Bar", "").optional(),
+        mainWaterStorage: Joi.string().optional().allow(''),
+        primeWaterTankStorage: Joi.string().optional().allow(''),
+        dieselStorage: Joi.string().optional().allow(''),
+        primeOverTankCapacity: Joi.number().optional(),
+        primeOverTankCapacity2: Joi.number().optional(),
+        terraceTankCapacity: Joi.number().optional(),
+        headerPressureBar: Joi.number().optional(),
+        systemCommissionDate: Joi.date().optional().allow('', null),
+        
+        // AMC / Maintenance
+        amcVendor: Joi.string().optional().allow(''),
+        amcStartDate: Joi.date().optional().allow('', null),
+        amcEndDate: Joi.date().optional().allow('', null),
+        
+        // Fire Equipment Count
+        numFireExtinguishers: Joi.number().optional(),
+        numHydrantPoints: Joi.number().optional(),
+        numSprinklers: Joi.number().optional(),
+        numSafeAssemblyAreas: Joi.number().optional(),
+        
+        // Fire Pumps
+        dieselEngine: Joi.string().optional().allow(''),
+        electricalPump: Joi.string().optional().allow(''),
+        jockeyPump: Joi.string().optional().allow(''),
+        
+        // Compliance - Fire NOC
+        fireNocNumber: Joi.string().optional().allow(''),
+        nocValidityDate: Joi.date().optional().allow('', null),
+        
+        // Fire Insurance
+        insurancePolicyNumber: Joi.string().optional().allow(''),
+        insurerName: Joi.string().optional().allow(''),
+        
+        // Compliance Equipment Count
+        complianceNumExtinguishers: Joi.number().optional(),
+        complianceNumHydrants: Joi.number().optional(),
+        complianceNumSprinklers: Joi.number().optional(),
+        complianceNumSafeAreas: Joi.number().optional(),
+        
+        // Document Upload
+        complianceDocuments: Joi.array().optional(),
+        
+        // Monitoring
+        edgeDeviceId: Joi.string().optional().allow(''),
+        monitoringBuilding: Joi.string().optional().allow(''),
+        specificLocation: Joi.string().optional().allow(''),
+        installationDate: Joi.date().optional().allow('', null),
+        
+        // Layout Upload
+        layoutName: Joi.string().optional().allow(''),
+        layouts: Joi.array().optional(),
+        layoutFiles: Joi.array().optional(),
+        
+        // Scheduler Setup
+        schedulerCategory: Joi.string().optional().allow(''),
+        schedulerStartDate: Joi.date().optional().allow('', null),
+        schedulerEndDate: Joi.date().optional().allow('', null),
+        inspectionFrequency: Joi.string().optional().allow(''),
+        testingFrequency: Joi.string().optional().allow(''),
+        maintenanceFrequency: Joi.string().optional().allow(''),
+        schedulerSetups: Joi.array().optional(),
+        
+        // Status
+        status: Joi.string().valid("Active", "Deactive", "Draft").optional(),
+      }).unknown(false); // Reject unknown fields
 
-      const { error } = plantCreateSchema.validate(req.body);
+      const { error, value } = plantCreateSchema.validate(req.body, { 
+        stripUnknown: true, // Remove unknown fields instead of rejecting
+        abortEarly: false // Show all errors
+      });
+      
       if (error) {
-        return next(error);
+        return res.status(400).json({ 
+          success: false,
+          message: error.details[0].message,
+          errors: error.details.map(d => d.message)
+        });
       }
 
       const {
-        pumpIotDeviceId,
         plantName,
         address,
+        address2,
         cityId,
+        stateId,
+        zipCode,
+        gstNo,
+        industryId,
         managerId,
-        headerPressure,
-        mainWaterStorage,
-        primeWaterTankStorage,
-        dieselStorage,
-        pressureUnit,
-      } = req.body;
-      const files = req.files || []; // Ensure files is always an array
+        plantImage,
+        status,
+        ...otherFields
+      } = value; // Use validated value instead of req.body
 
-      // 🌟 Handle optional plant image safely
-      const plantImageFile = files.find(
-        (file) => file.fieldname === "plantImage"
-      );
-      let plantImageUpload = null;
-
-      if (plantImageFile) {
-        plantImageUpload = await uploadOnClodinary(plantImageFile.path);
-      }
-
-      let orgUserId = req.user._id;
+      let orgUserId = req.user.id;
       let orgName = req.user.name;
+
+      // Handle manager case
       if (req.user.userType === "manager") {
-        const org = await Manager.findOne({ userId: req.user._id })
-          .populate({
-            path: "orgUserId",
-            select: "userType name phone email loginID",
-          })
-          .select("orgUserId");
-        orgUserId = org?.orgUserId?._id;
-        orgName = org?.orgUserId?.name;
+        const manager = await Manager.findOne({ 
+          where: { userId: req.user.id },
+          include: [{ 
+            model: User, 
+            as: "organization",
+            attributes: ['id', 'name'] 
+          }]
+        });
+        
+        if (manager && manager.organization) {
+          orgUserId = manager.orgUserId;
+          orgName = manager.organization.name;
+        }
       }
 
-      const plantCount = await Plant.countDocuments({
-        orgUserId,
-      });
-      const orgNameSlice = orgName.toString().slice(0, 2).toUpperCase();
-      const cityData = await city.findById(cityId).select("cityName");
-      const citySlice = cityData.cityName.toString().slice(0, 3).toUpperCase();
+      // Generate plant ID if not provided
+      let generatedPlantId = value.plantId;
+      if (!generatedPlantId) {
+        const plantCount = await Plant.count({ where: { orgUserId } });
+        const orgNameSlice = orgName ? orgName.slice(0, 2).toUpperCase() : 'PL';
+        
+        const cityData = await City.findByPk(cityId);
+        const citySlice = cityData ? cityData.cityName.slice(0, 3).toUpperCase() : 'CTY';
+        
+        generatedPlantId = `${orgNameSlice}-${citySlice}-${(plantCount + 1).toString().padStart(4, "0")}`;
+      }
 
-      // 🌟 Create new plant with optional plantImage & layouts
-      const newPlant = new Plant({
-        plantId: `${orgNameSlice}-${citySlice}-${(plantCount + 1)
-          .toString()
-          .padStart(4, "0")}`,
+      // Convert string boolean values to actual booleans
+      const plantData = {
+        plantId: generatedPlantId,
         orgUserId,
-        pumpIotDeviceId,
         plantName,
         address,
+        address2: address2 || null,
         cityId,
-        managerId,
-        plantImage: plantImageUpload ? plantImageUpload.url : null,
-        headerPressure,
-        pressureUnit,
-        mainWaterStorage,
-        primeWaterTankStorage,
-        dieselStorage,
+        stateId,
+        zipCode: zipCode || null,
+        gstNo: gstNo || null,
+        industryId,
+        managerId: managerId || null,
+        plantImage: plantImage || null,
+        status: status || 'Draft',
+        ...otherFields,
+        // Convert string yes/no to boolean
+        dgAvailable: otherFields.dgAvailable === 'yes' || otherFields.dgAvailable === true,
+        staircaseAvailable: otherFields.staircaseAvailable === 'yes' || otherFields.staircaseAvailable === true,
+        staircasePressurization: otherFields.staircasePressurization === 'yes' || otherFields.staircasePressurization === true,
+        staircaseEmergencyLighting: otherFields.staircaseEmergencyLighting === 'yes' || otherFields.staircaseEmergencyLighting === true,
+        liftAvailable: otherFields.liftAvailable === 'yes' || otherFields.liftAvailable === true,
+      };
+
+      const newPlant = await Plant.create(plantData);
+
+      // Fetch the created plant with associations
+      const createdPlant = await Plant.findByPk(newPlant.id, {
+        include: [
+          { model: City, as: 'city', include: [{ model: State, as: 'state' }] },
+          { model: State, as: 'state' },
+          { model: Industry, as: 'industry' },
+          { 
+            model: Manager, 
+            as: 'manager',
+            include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }]
+          }
+        ]
       });
 
-      await newPlant.save();
-
-      return res.status(200).json({ message: "Plant created successfully" });
+      return res.status(201).json({ 
+        success: true,
+        message: "Plant created successfully",
+        plant: createdPlant 
+      });
     } catch (error) {
-      console.error(error);
-      return next(new Error("Failed to create plant."));
+      console.error('Create plant error:', error);
+      return res.status(500).json({ 
+        success: false,
+        message: 'Failed to create plant',
+        error: error.message 
+      });
     }
   },
-  async editPlant(req, res, next) {
+
+  async update(req, res, next) {
     try {
-      const plantEditSchema = Joi.object({
-        _id: Joi.string().pattern(mongodbIdPattern),
-        pumpIotDeviceId: Joi.string().optional(),
-        plantName: Joi.string(),
-        address: Joi.string(),
-        cityId: Joi.string().pattern(mongodbIdPattern),
-        managerId: Joi.string().pattern(mongodbIdPattern).optional(),
-        status: Joi.string(),
-        headerPressure: Joi.string().optional(),
-        pressureUnit: Joi.string()
-          .valid("Kg/Cm2", "PSI", "MWC", "Bar")
-          .allow("")
-          .optional(),
-        mainWaterStorage: Joi.string().optional(),
-        primeWaterTankStorage: Joi.string().optional(),
-        dieselStorage: Joi.string().optional(),
+      const plantUpdateSchema = Joi.object({
+        id: Joi.string().uuid().required(),
+        plantName: Joi.string().optional(),
+        address: Joi.string().optional(),
+        cityId: Joi.string().uuid().optional(),
+        stateId: Joi.string().uuid().optional(),
+        industryId: Joi.string().uuid().optional(),
+        managerId: Joi.string().uuid().optional().allow('', null),
+        status: Joi.string().valid("Active", "Deactive").optional(),
+        headerPressure: Joi.string().optional().allow(''),
+        pressureUnit: Joi.string().valid("Kg/Cm2", "PSI", "MWC", "Bar", "").optional(),
+        mainWaterStorage: Joi.string().optional().allow(''),
+        primeWaterTankStorage: Joi.string().optional().allow(''),
+        dieselStorage: Joi.string().optional().allow(''),
       });
 
-      const { error, value } = plantEditSchema.validate(req.body);
+      const { error } = plantUpdateSchema.validate(req.body);
       if (error) {
-        return next(new Error(error.details[0].message));
+        return res.status(400).json({ 
+          success: false,
+          message: error.details[0].message 
+        });
       }
 
       const {
-        pumpIotDeviceId,
+        id,
         plantName,
         address,
         cityId,
+        stateId,
+        industryId,
         managerId,
+        status,
         headerPressure,
         pressureUnit,
         mainWaterStorage,
         primeWaterTankStorage,
         dieselStorage,
-      } = value;
-      const files = req.files;
+      } = req.body;
 
-      const plant = await Plant.findById(req.params.id);
+      const plant = await Plant.findByPk(id);
       if (!plant) {
-        return res.status(404).json({ message: "Plant not found" });
+        return res.status(404).json({ 
+          success: false,
+          message: "Plant not found" 
+        });
       }
 
-      const plantImage =
-        files.find((file) => file.fieldname === "plantImage") || null;
+      // Update plant fields
+      const updateData = {
+        plantName: plantName !== undefined ? plantName : plant.plantName,
+        address: address !== undefined ? address : plant.address,
+        cityId: cityId !== undefined ? cityId : plant.cityId,
+        stateId: stateId !== undefined ? stateId : plant.stateId,
+        industryId: industryId !== undefined ? industryId : plant.industryId,
+        managerId: managerId !== undefined ? (managerId || null) : plant.managerId,
+        status: status !== undefined ? status : plant.status,
+        headerPressure: headerPressure !== undefined ? headerPressure : plant.headerPressure,
+        pressureUnit: pressureUnit !== undefined ? pressureUnit : plant.pressureUnit,
+        mainWaterStorage: mainWaterStorage !== undefined ? mainWaterStorage : plant.mainWaterStorage,
+        primeWaterTankStorage: primeWaterTankStorage !== undefined ? primeWaterTankStorage : plant.primeWaterTankStorage,
+        dieselStorage: dieselStorage !== undefined ? dieselStorage : plant.dieselStorage,
+      };
 
-      if (plantImage) {
-        const plantImageUpload = await uploadOnClodinary(plantImage.path);
-        plant.plantImage = plantImageUpload.url;
-      }
+      await plant.update(updateData);
 
-      plant.pumpIotDeviceId = pumpIotDeviceId || plant.pumpIotDeviceId;
-      plant.plantName = plantName || plant.plantName;
-      plant.address = address || plant.address;
-      plant.cityId = cityId || plant.cityId;
-      plant.managerId = managerId || plant.managerId;
-      plant.headerPressure = headerPressure || plant.headerPressure;
-      plant.pressureUnit = pressureUnit || plant.pressureUnit;
-      plant.mainWaterStorage = mainWaterStorage || plant.mainWaterStorage;
-      plant.primeWaterTankStorage =
-        primeWaterTankStorage || plant.primeWaterTankStorage;
-      plant.dieselStorage = dieselStorage || plant.dieselStorage;
+      // Fetch updated plant with associations
+      const updatedPlant = await Plant.findByPk(id, {
+        include: [
+          { model: City, as: 'city', include: [{ model: State, as: 'state' }] },
+          { model: State, as: 'state' },
+          { model: Industry, as: 'industry' },
+          { 
+            model: Manager, 
+            as: 'manager',
+            include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }]
+          }
+        ]
+      });
 
-      const updatedPlant = await plant.save();
-
-      return res.json({
+      return res.json({ 
+        success: true,
         message: "Plant updated successfully",
-        plant: updatedPlant,
+        plant: updatedPlant 
       });
     } catch (error) {
-      console.error("Error updating plant:", error);
-      return next(new Error("Failed to update plant."));
-    }
-  },
-  // this methods help to get layouts of the plant from the plant table
-  async getLayoutsByPlant(req, res, next) {
-    const { plantId } = req.params;
-    try {
-      const layouts = await Plant.findById(plantId).select(
-        "layouts.layoutImage layouts.layoutName"
-      );
-      return res.json(layouts);
-    } catch (error) {
-      next(error);
-    }
-  },
-  async getLayoutMarkers(req, res, next) {
-    try {
-      const { plantId, layoutName } = req.body;
-
-      const plant = await Plant.findOne(
-        {
-          _id: plantId,
-          "layouts.layoutName": layoutName,
-        },
-        { "layouts.$": 1 }
-      ).populate({
-        path: "layouts.markers.assetId",
-        populate: [
-          { path: "productCategoryId", select: "categoryName" },
-          { path: "productId", select: "type" },
-        ],
-        select:
-          "assetId productCategoryId productId location healthStatus createdAt",
+      console.error('Update plant error:', error);
+      return res.status(500).json({ 
+        success: false,
+        message: 'Failed to update plant',
+        error: error.message 
       });
-
-      const markers = plant.layouts[0].markers || [];
-
-      // Include populated values for filtering on frontend
-      const formattedMarkers = markers.map((marker) => ({
-        _id: marker.assetId?._id,
-        x: marker.x,
-        y: marker.y,
-        label: marker.assetId, // Full asset object
-        categoryName: marker.assetId?.productCategoryId?.categoryName,
-        type: marker.assetId?.productId?.type,
-        location: marker.assetId?.location,
-        healthStatus: marker.assetId?.healthStatus,
-      }));
-
-      return res.json({ markers: formattedMarkers });
-    } catch (error) {
-      return next(error);
     }
   },
-  // update layout marker from the plant layout
-  async updateLayoutMarker(req, res, next) {
+
+  async delete(req, res, next) {
     try {
-      const { plantId, layoutName, markers } = req.body;
-
-      if (!plantId || !layoutName || !markers) {
-        return res
-          .status(400)
-          .json({ message: "plantId, layoutName, and markers are required." });
-      }
-
-      const plant = await Plant.findById(plantId).select("layouts");
-
+      const { id } = req.params;
+      
+      const plant = await Plant.findByPk(id);
       if (!plant) {
-        return res.status(404).json({ message: "Plant not found." });
+        return res.status(404).json({ 
+          success: false,
+          message: "Plant not found" 
+        });
       }
 
-      const layout = plant.layouts.find((l) => l.layoutName === layoutName);
-
-      if (!layout) {
-        return res.status(404).json({ message: "Layout not found." });
-      }
-
-      layout.markers = markers;
-
-      await plant.save();
-
-      const updated = await Plant.findOne(
-        { _id: plantId, "layouts.layoutName": layoutName },
-        { "layouts.$": 1 }
-      ).populate("layouts.markers.assetId", "assetId");
-
-      return res.status(200).json(updated.layouts[0].markers);
+      await plant.destroy();
+      
+      return res.json({ 
+        success: true,
+        message: "Plant deleted successfully" 
+      });
     } catch (error) {
-      next(error);
+      console.error('Delete plant error:', error);
+      return res.status(500).json({ 
+        success: false,
+        message: 'Failed to delete plant',
+        error: error.message 
+      });
     }
   },
-  async getPumpIotDeviceIdByPlant(req, res, next) {
-    const { id } = req.params;
+
+  async getAllActive(req, res, next) {
     try {
-      const plant = await Plant.findById(id).select("pumpIotDeviceId");
-      return res.json(plant);
+      let orgUserId = req.user.id;
+      let whereCondition = { 
+        orgUserId,
+        status: 'Active'
+      };
+      
+      if (req.user.userType === "manager") {
+        const manager = await Manager.findOne({ 
+          where: { userId: req.user.id }
+        });
+        
+        if (manager) {
+          orgUserId = manager.orgUserId;
+          whereCondition.managerId = manager.id;
+        }
+      }
+
+      const plants = await Plant.findAll({
+        where: whereCondition,
+        order: [['plantName', 'ASC']],
+        include: [
+          {
+            model: City,
+            as: 'city',
+            attributes: ['id', 'cityName']
+          },
+          {
+            model: State,
+            as: 'state',
+            attributes: ['id', 'stateName']
+          }
+        ]
+      });
+
+      return res.status(200).json({ 
+        success: true,
+        plants 
+      });
     } catch (error) {
-      return next(error);
+      console.error('Get active plants error:', error);
+      return res.status(500).json({ 
+        success: false,
+        message: 'Failed to fetch active plants',
+        error: error.message 
+      });
     }
-  },
+  }
 };
 
 module.exports = plantController;

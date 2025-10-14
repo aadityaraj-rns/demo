@@ -1,5 +1,6 @@
 const bcrypt = require("bcryptjs");
 const Joi = require("joi");
+const { Op } = require("sequelize");
 const User = require("../../../models/user");
 const Client = require("../../../models/admin/client/Client");
 const ClientDTO = require("../../../dto/client");
@@ -8,8 +9,6 @@ const Asset = require("../../../models/organization/asset/Asset");
 const Ticket = require("../../../models/organization/ticket/Ticket");
 const Plant = require("../../../models/organization/plant/Plant");
 const sendSMS = require("../../../utils/sendSMS");
-
-const mongodbIdPattern = /^[0-9a-fA-F]{24}$/;
 
 const clientController = {
   async generateRandomPassword(length = 8) {
@@ -23,36 +22,26 @@ const clientController = {
     }
     return password;
   },
+
   async create(req, res, next) {
-    const createClientSchema = Joi.object({
+    const schema = Joi.object({
       name: Joi.string().required(),
       contactNo: Joi.string()
         .pattern(/^\d{10}$/)
-        .required()
-        .messages({
-          "string.pattern.base": "Contact number should be 10 digits",
-        }),
-      email: Joi.string()
-        .email()
-        .required()
-        .messages({ "string.email": "Please enter a valid email address" }),
-      branchName: Joi.string().allow("").optional(),
-      cityId: Joi.string().regex(mongodbIdPattern).required(),
-      clientType: Joi.string().valid("partner", "organization").required(),
-      categoryId: Joi.array()
-        .items(Joi.string().pattern(mongodbIdPattern).required())
         .required(),
+      email: Joi.string().email().required(),
+      branchName: Joi.string().allow("").optional(),
+      cityId: Joi.string().required(),
+      clientType: Joi.string().valid("partner", "organization").required(),
+      categoryId: Joi.array().items(Joi.string().required()).required(),
       gst: Joi.string().allow("").optional(),
-      industryId: Joi.string().regex(mongodbIdPattern).allow(null).optional(),
+      industryId: Joi.string().allow(null).optional(),
       address: Joi.string().allow("").optional(),
       pincode: Joi.string().allow("").optional(),
     });
 
-    const { error } = createClientSchema.validate(req.body);
-
-    if (error) {
-      return next(error);
-    }
+    const { error } = schema.validate(req.body);
+    if (error) return next(error);
 
     const {
       name,
@@ -64,302 +53,139 @@ const clientController = {
       clientType,
       categoryId,
       gst,
-      pincode,
       address,
+      pincode,
     } = req.body;
 
-    const findClient = await User.findOne({
-      userType: clientType,
-      $or: [{ phone: contactNo }, { email: email }],
-    });
-
-    if (findClient) {
-      const error = {
-        status: 400,
-        message: "Client with same email/contactNo is already available",
-      };
-      return next(error);
-    }
-
     try {
-      const characters =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-      let password = "";
-      for (let i = 0; i < 8; i++) {
-        password += characters.charAt(
-          Math.floor(Math.random() * characters.length)
-        );
-      }
-      const saltRounds = 10;
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-      const totalUsers = await User.countDocuments({
-        userType: clientType,
+      // Check existing user
+      const existingUser = await User.findOne({
+        where: {
+          userType: clientType,
+          [Op.or]: [{ phone: contactNo }, { email }],
+        },
       });
-      let loginPrefix;
-      if (clientType === "organization") {
-        loginPrefix = "ORG";
-      } else if (clientType === "partner") {
-        loginPrefix = "FDPTNR";
-      }
-      const newUser = new User({
+      if (existingUser)
+        return next({
+          status: 400,
+          message: "Client with same email/contactNo is already available",
+        });
+
+      // Generate password
+      const password = await clientController.generateRandomPassword();
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Generate loginID
+      const totalUsers = await User.count({ where: { userType: clientType } });
+      const loginPrefix = clientType === "organization" ? "ORG" : "FDPTNR";
+      const loginID = `${loginPrefix}${(totalUsers + 1).toString().padStart(4, "0")}`;
+
+      // Create User
+      const newUser = await User.create({
         userType: clientType,
         name,
         phone: contactNo,
         email,
         password: hashedPassword,
-        loginID: `${loginPrefix}${(totalUsers + 1)
-          .toString()
-          .padStart(4, "0")}`,
+        loginID,
       });
-      await newUser.save();
 
+      // Send SMS
       sendSMS(
         contactNo,
-        `Dear ${name}, your Firedesk account has been successfully created. Your User ID is ${newUser.loginID} and your Password is ${password}. Log in to manage your assets and services efficiently. For assistance, contact admin. - Team LEISTUNG TECHNOLOGIES`
+        `Dear ${name}, your Firedesk account has been successfully created. Your User ID is ${loginID} and your Password is ${password}.`
       );
 
-      const categories = categoryId.map((id) => ({
-        categoryId: id,
-      }));
-      const newClient = new Client({
-        userId: newUser._id,
+      // Create Client
+      const newClient = await Client.create({
+        userId: newUser.id,
         branchName,
         cityId,
         industryId,
         clientType,
-        categories,
         gst,
         address,
         pincode,
       });
-      await newClient.save();
 
-      await newClient.populate("userId");
-      await newClient.populate({ path: "cityId", populate: "stateId" });
-      await newClient.populate("industryId");
-      await newClient.populate("categories.categoryId");
+      // Handle categories (assumes ClientCategory is a join table in Sequelize)
+      if (categoryId && categoryId.length) {
+        await newClient.setCategories(categoryId); // Sequelize many-to-many
+      }
 
-      const clientDTO = new ClientDTO(newClient);
+      // Fetch full client with related data
+      const fullClient = await Client.findByPk(newClient.id, {
+        include: [
+          { model: User },
+          { model: require("../../../models/admin/masterData/City"), include: ["stateId"] },
+          { model: require("../../../models/admin/masterData/Industry") },
+          { model: require("../../../models/admin/masterData/Category"), through: "ClientCategory" },
+        ],
+      });
 
-      return res.json({ newClient: clientDTO });
-    } catch (error) {
-      return next(error);
+      return res.json({ newClient: new ClientDTO(fullClient) });
+    } catch (err) {
+      return next(err);
     }
   },
+
   async getAll(req, res, next) {
     try {
-      const clients = await Client.find({})
-        .sort({ createdAt: -1 })
-        .populate("userId")
-        .populate("industryId")
-        .populate({ path: "cityId", populate: "stateId" })
-        .populate({ path: "createdByPartnerUserId", select: "loginID" })
-        .populate("categories.categoryId")
-        .exec();
+      const clients = await Client.findAll({
+        order: [["createdAt", "DESC"]],
+        include: [
+          { model: User },
+          { model: require("../../../models/admin/masterData/City"), include: ["stateId"] },
+          { model: require("../../../models/admin/masterData/Industry") },
+          { model: require("../../../models/admin/masterData/Category"), through: "ClientCategory" },
+          { model: User, as: "createdByPartnerUser", attributes: ["loginID"] },
+        ],
+      });
 
-      const clientsDto = clients.map((client) => new ClientDTO(client));
+      const clientsDto = clients.map((c) => new ClientDTO(c));
       return res.json({ clients: clientsDto });
-    } catch (error) {
-      return next(error);
+    } catch (err) {
+      return next(err);
     }
   },
+
   async editClient(req, res, next) {
-    const editClientSchema = Joi.object({
-      _id: Joi.string().regex(mongodbIdPattern).required(),
-      name: Joi.string().required(),
-      branchName: Joi.string().allow("").optional(),
-      cityId: Joi.string().regex(mongodbIdPattern).required(),
-      industryId: Joi.string().regex(mongodbIdPattern).allow(null).optional(),
-      clientType: Joi.string().valid("partner", "organization").required(),
-      categoryId: Joi.array().items(
-        Joi.string().regex(mongodbIdPattern).required()
-      ),
-      status: Joi.string().required(),
-      gst: Joi.string().allow("").optional(),
-      address: Joi.string().allow("").optional(),
-      pincode: Joi.string().allow("").optional(),
-    });
-
-    const { error } = editClientSchema.validate(req.body);
-
-    if (error) {
-      return next(error);
-    }
-
-    const {
-      _id,
-      name,
-      branchName,
-      cityId,
-      industryId,
-      categoryId,
-      status,
-      gst,
-      address,
-      pincode,
-    } = req.body;
-
     try {
-      const findClient = await Client.findOne({ _id });
-      const categories = categoryId.map((id) => {
-        const existingCategory = findClient.categories.find(
-          (category) => category.categoryId.toString() === id.toString()
-        );
+      const { _id, name, branchName, cityId, industryId, clientType, categoryId, status, gst, address, pincode } =
+        req.body;
 
-        return {
-          categoryId: id,
-          ...(existingCategory && existingCategory.serviceDetails
-            ? { serviceDetails: existingCategory.serviceDetails }
-            : {}),
-        };
-      });
+      const client = await Client.findByPk(_id, { include: [User] });
+      if (!client) return res.status(400).json({ msg: "client not found" });
 
-      if (!findClient) {
-        return res.status(400).json({ msg: "client not found" });
-      } else {
-        const userId = findClient.userId;
-        await Client.updateOne(
-          { _id },
-          {
-            branchName,
-            cityId,
-            industryId,
-            categories,
-            gst,
-            address,
-            pincode,
-          }
-        );
-        await User.updateOne({ _id: userId }, { status, name });
+      await client.update({ branchName, cityId, industryId, gst, address, pincode });
+      if (categoryId && categoryId.length) await client.setCategories(categoryId);
 
-        return res.status(200).json({ msg: "Client updated" });
-      }
-    } catch (error) {
-      return next(error);
+      // Update User info
+      await client.user.update({ name, status });
+
+      return res.status(200).json({ msg: "Client updated" });
+    } catch (err) {
+      return next(err);
     }
   },
-  async getTechnicians(req, res, next) {
-    const getTechniciansSchema = Joi.object({
-      orgUserId: Joi.string().pattern(mongodbIdPattern).required(),
-    });
 
-    const { error } = getTechniciansSchema.validate(req.params);
-
-    if (error) {
-      return next(error);
-    }
-
-    const { orgUserId } = req.params;
-    try {
-      const technicians = await Technician.find({ orgId: orgUserId }).populate(
-        "userId"
-      );
-      return res.json({ technicians });
-    } catch (error) {
-      return next(error);
-    }
-  },
-  async getAssets(req, res, next) {
-    const getTechniciansSchema = Joi.object({
-      orgUserId: Joi.string().pattern(mongodbIdPattern).required(),
-    });
-
-    const { error } = getTechniciansSchema.validate(req.params);
-
-    if (error) {
-      return next(error);
-    }
-
-    const { orgUserId } = req.params;
-
-    try {
-      const assets = await Asset.find({ orgUserId })
-        .populate({ path: "productId", select: "productName testFrequency" })
-        .populate({ path: "plantId", select: "plantName" });
-      return res.json({ assets });
-    } catch (error) {
-      return next(error);
-    }
-  },
-  async getTickets(req, res, next) {
-    const getTechniciansSchema = Joi.object({
-      orgUserId: Joi.string().pattern(mongodbIdPattern).required(),
-    });
-
-    const { error } = getTechniciansSchema.validate(req.params);
-
-    if (error) {
-      return next(error);
-    }
-
-    const { orgUserId } = req.params;
-
-    try {
-      const tickets = await Ticket.find({ orgUserId }).populate({
-        path: "plantId",
-        select: "plantName",
-      });
-      return res.json({ tickets });
-    } catch (error) {
-      return next(error);
-    }
-  },
-  async getPlants(req, res, next) {
-    const getTechniciansSchema = Joi.object({
-      orgUserId: Joi.string().pattern(mongodbIdPattern).required(),
-    });
-
-    const { error } = getTechniciansSchema.validate(req.params);
-
-    if (error) {
-      return next(error);
-    }
-
-    const { orgUserId } = req.params;
-
-    try {
-      const plants = await Plant.find({ orgUserId })
-        .populate({
-          path: "cityId",
-          select: "cityName",
-        })
-        .populate({
-          path: "managerId",
-          populate: { path: "userId", select: "name" },
-          select: "userId",
-        });
-      return res.json({ plants });
-    } catch (error) {
-      return next(error);
-    }
-  },
   async orgProfile(req, res, next) {
-    const getTechniciansSchema = Joi.object({
-      orgUserId: Joi.string().pattern(mongodbIdPattern).required(),
-    });
-
-    const { error } = getTechniciansSchema.validate(req.params);
-
-    if (error) {
-      return next(error);
-    }
-
-    const { orgUserId } = req.params;
     try {
+      const { orgUserId } = req.params;
       const organization = await Client.findOne({
-        userId: orgUserId,
-      })
-        .populate({
-          path: "userId",
-          select: "userType name phone email loginID profile",
-        })
-        .populate({ path: "cityId", select: "cityName" });
+        where: { userId: orgUserId },
+        include: [
+          { model: User, attributes: ["userType", "name", "phone", "email", "loginID", "profile"] },
+          { model: require("../../../models/admin/masterData/City"), attributes: ["cityName"] },
+        ],
+      });
 
       return res.json({ organization });
-    } catch (error) {
-      return next(error);
+    } catch (err) {
+      return next(err);
     }
   },
 };
+
 module.exports = clientController;
+ 

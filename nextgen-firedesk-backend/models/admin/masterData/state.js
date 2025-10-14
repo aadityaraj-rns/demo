@@ -1,15 +1,17 @@
-const mongoose = require("mongoose");
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../../../database/index");
 
-const { Schema } = mongoose;
+const State = sequelize.define("State", {
+  id: { type: DataTypes.UUID, defaultValue: DataTypes.UUIDV4, primaryKey: true },
+  stateName: { type: DataTypes.STRING, allowNull: false, unique: true, validate: { notEmpty: true } },
+  status: { type: DataTypes.ENUM("Active", "Deactive"), defaultValue: "Active" },
+  createdBy: { type: DataTypes.UUID, allowNull: false, references: { model: "users", key: "id" } },
+}, {
+  tableName: "states",
+  timestamps: true,
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+});
 
-const stateSchema = new Schema(
-  {
-    stateName: { type: String, required: true },
-    status: { type: String, enum: ["Active", "Deactive"], default: "Active" },
-  },
-  {
-    timestamps: true,
-  }
-);
-
-module.exports = mongoose.model("State", stateSchema, "states");
+module.exports = State;
+ 

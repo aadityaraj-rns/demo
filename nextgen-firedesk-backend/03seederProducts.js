@@ -2,7 +2,7 @@ const { default: mongoose } = require("mongoose");
 //const mongoURI =
  // "mongodb+srv://Sibarchan:Sipu123@cluster0.xtninjp.mongodb.net/fire-desk1?retryWrites=true&w=majority&appName=Cluster0";
 //const mongoURI = "mongodb://127.0.0.1:27017/firedesk"
-const mongoURI="mongodb://admin:StrongPass123@127.0.0.1:47017/ngfiredeskdbqa?authSource=admin"
+const mongoURI="mongodb://admin:StrongPass123@127.0.0.1:37017/firedeskdb?authSource=admin"
 // Import your Mongoose models
 const Category = require("./models/admin/masterData/category");
 const Product = require("./models/admin/product");

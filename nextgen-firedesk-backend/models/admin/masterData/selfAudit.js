@@ -1,32 +1,24 @@
-const mongoose = require("mongoose");
-const { Schema } = mongoose;
+// models/admin/masterData/selfAudit.js
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../../../database/index");
 
-const QuestionSchema = new Schema({
-  questionText: {
-    type: String,
-    required: true,
+const SelfAudit = sequelize.define("SelfAudit", {
+  selfAuditId: {
+    type: DataTypes.INTEGER,
+    primaryKey: true,
+    autoIncrement: true,
+    field: "self_audit_id",
   },
-  questionType: {
-    type: String,
-    required: true,
-    enum: ["Yes/No", "Input"], // Restricting to specific types
-  },
-});
-
-const CategorySchema = new Schema({
-  categoryName: {
-    type: String,
-    required: true,
-  },
-  questions: [QuestionSchema], // Embedding QuestionSchema as an array inside CategorySchema
-});
-
-const selfAuditSchema = new Schema(
-  {
-    categories: [CategorySchema], // Embedding CategorySchema as an array
-  },
-  {
-    timestamps: true,
+  name: {
+    type: DataTypes.TEXT,
+    allowNull: false, 
+    field: "name",
   }
-);
-module.exports = mongoose.model("SelfAudit", selfAuditSchema, "selfAudits");
+}, {
+  tableName: "self_audits",
+  timestamps: true,
+  createdAt: "created_at",
+  updatedAt: "updated_at",
+});
+
+module.exports = SelfAudit;

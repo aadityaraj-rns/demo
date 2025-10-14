@@ -1,28 +1,23 @@
-// const { required } = require("joi");
-// const { Schema, model, SchemaTypes } = require("mongoose");
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../../../database/index");
 
-// const serviceSchema = new Schema(
-//   {
-//     assetId: {
-//       type: SchemaTypes.ObjectId,
-//       ref: "Asset",
-//       required: true,
-//     },
-//     technicianUserId: {
-//       type: SchemaTypes.ObjectId,
-//       ref: "User",
-//       required: true,
-//     },
-//     serviceStartDate: { type: Date, required: true },
-//     serviceEndDate: { type: Date, required: false },
-//     serviceStatus: {
-//       type: String,
-//       enum: ["In Progress", "Completed"],
-//       default: "In Progress",
-//     },
-//   },
-//   {
-//     timestamps: true,
-//   }
-// );
-// module.exports = model("Service", serviceSchema, "services");
+const Service = sequelize.define("Service", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  // TODO: Add specific fields based on original Mongoose model
+  data: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    defaultValue: {},
+  },
+}, {
+  tableName: "services",
+  timestamps: true,
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+});
+
+module.exports = Service;

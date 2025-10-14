@@ -1,20 +1,20 @@
 class ClientDTO {
   constructor(client) {
-    this._id = client?._id || null;  // Safely access _id or return null
-    this.userId = client?.userId?._id || null;
+    this.id = client?.id || null; // Use Sequelize's 'id' instead of '_id'
+    this.userId = client?.userId?.id || null;
     this.branchName = client?.branchName || "";
-    this.cityId = client?.cityId?._id || null;
-    this.cityName = client?.cityId?.cityName || "";
-    this.stateId = client?.cityId?.stateId?._id || null;
-    this.stateName = client?.cityId?.stateId?.stateName || "";
-    this.industryId = client?.industryId?._id || null;
-    this.industryName = client?.industryId?.industryName || "";
+    this.cityId = client?.city?.id || null;
+    this.cityName = client?.city?.cityName || "";
+    this.stateId = client?.city?.state?.id || null;
+    this.stateName = client?.city?.state?.stateName || "";
+    this.industryId = client?.industry?.id || null;
+    this.industryName = client?.industry?.industryName || "";
     this.clientType = client?.clientType || "";
     this.categoryId = client?.categories?.map(
-      (category) => category?.categoryId?._id
+      (category) => category?.category?.id
     ) || [];
     this.categoryNames = client?.categories?.map(
-      (category) => category?.categoryId?.categoryName
+      (category) => category?.category?.categoryName
     ) || [];
     this.contactNo = client?.userId?.phone || "";
     this.email = client?.userId?.email || "";

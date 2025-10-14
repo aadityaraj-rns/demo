@@ -1,64 +1,73 @@
-const mongoose = require("mongoose");
-const { Schema } = mongoose;
-const AutoIncrement = require("mongoose-sequence")(mongoose);
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../../database/index");
 
-
-const variantSchema = new Schema(
-  {
-    type: { type: String, required: true, trim: true },
-
-    subType: {
-      type: [String], // array of strings
-      default: [],
-      validate: {
-        validator: (arr) => new Set(arr).size === arr.length,
-        message: "Duplicate sub-types are not allowed inside the same variant",
-      },
-    },
-
-    description: { type: String, required: true },
-    image: { type: String, required: true },
+const Product = sequelize.define("Product", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
   },
-  { _id: false } // don’t need separate _ids for variants
-);
-
-
-const productSchema = new Schema(
-  {
-    categoryId: {
-      type: Schema.Types.ObjectId,
-      ref: "Category",
-      required: true,
+  categoryId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: "categories",
+      key: "id",
     },
-
-    productName: { type: String, required: true },
-
-    testFrequency: {
-      type: String,
-      required: true,
-      enum: ["One Year", "Two Years", "Three Years", "Five Years", "Ten Years"],
+  },
+  productName: {
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      notEmpty: true,
     },
-
-    variants: {
-      type: [variantSchema],
-      default: [],
-      validate: {
-        validator: function (arr) {
-          const seen = new Set();
-          for (const v of arr) {
-            if (seen.has(v.type)) return false; // duplicate type
-            seen.add(v.type);
+  },
+  testFrequency: {
+    type: DataTypes.ENUM("One Year", "Two Years", "Three Years", "Five Years", "Ten Years"),
+    allowNull: false,
+  },
+  variants: {
+    type: DataTypes.JSONB, // Store complex array of objects as JSON
+    allowNull: true,
+    defaultValue: [],
+    validate: {
+      customValidator(value) {
+        if (!Array.isArray(value)) {
+          throw new Error("Variants must be an array");
+        }
+        
+        // Check for unique variant types
+        const types = value.map(v => v.type);
+        const uniqueTypes = new Set(types);
+        if (types.length !== uniqueTypes.size) {
+          throw new Error("Each variant.type must be unique in this product");
+        }
+        
+        // Validate each variant structure and unique subTypes
+        value.forEach(variant => {
+          if (!variant.type || !variant.description || !variant.image) {
+            throw new Error("Each variant must have type, description, and image");
           }
-          return true;
-        },
-        message: "Each variant.type must be unique in this product",
+          
+          if (variant.subType && Array.isArray(variant.subType)) {
+            const uniqueSubTypes = new Set(variant.subType);
+            if (variant.subType.length !== uniqueSubTypes.size) {
+              throw new Error("Duplicate sub-types are not allowed inside the same variant");
+            }
+          }
+        });
       },
     },
-
-    status: { type: String, enum: ["Active", "Deactive"], default: "Active" },
   },
-  { timestamps: true }
-);
+  status: {
+    type: DataTypes.ENUM("Active", "Deactive"),
+    defaultValue: "Active",
+  },
+}, {
+  tableName: "products",
+  timestamps: true,
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+});
 
-
-module.exports = mongoose.model("Product", productSchema);
+module.exports = Product;

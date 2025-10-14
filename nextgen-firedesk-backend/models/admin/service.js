@@ -1,16 +1,23 @@
-// const { required } = require("joi");
-// const mongoose = require("mongoose");
-// const { Schema } = mongoose;
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../../database/index");
 
-// const serviceSchema = new Schema({
-//   productId: {
-//     type: mongoose.SchemaTypes.ObjectId,
-//     ref: "Product",
-//     required: true,
-//   },
-//   details: { type: string, required: true },
-//   serviceFrequency: { type: string, required: true },
-//   questions: [{ type: string, required: true }],
-//   remarks: { type: string, required: true },
-//   status: { type: String, enum: ["Active", "Deactive"], default: "Active" },
-// });
+const service = sequelize.define("service", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  // TODO: Add specific fields based on original Mongoose model
+  data: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    defaultValue: {},
+  },
+}, {
+  tableName: "services",
+  timestamps: true,
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+});
+
+module.exports = service;

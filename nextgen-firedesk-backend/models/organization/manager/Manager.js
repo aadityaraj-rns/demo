@@ -1,23 +1,37 @@
-const mongoose = require("mongoose");
-const { Schema } = mongoose;
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../../../database/index");
 
-const managerSchema = new Schema(
-  {
-    managerId: String,
-    userId: {
-      type: mongoose.SchemaTypes.ObjectId,
-      ref: "User",
-      required: true,
-    },
-    orgUserId: {
-      type: mongoose.SchemaTypes.ObjectId,
-      ref: "User",
-      required: true,
+const Manager = sequelize.define("Manager", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
+  },
+  managerId: {
+    type: DataTypes.STRING,
+    allowNull: true,
+  },
+  userId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: "users",
+      key: "id",
     },
   },
-  {
-    timestamps: true,
-  }
-);
+  orgUserId: {
+    type: DataTypes.UUID,
+    allowNull: false,
+    references: {
+      model: "users",
+      key: "id",
+    },
+  },
+}, {
+  tableName: "managers",
+  timestamps: true,
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
+});
 
-module.exports = mongoose.model("Manager", managerSchema, "managers");
+module.exports = Manager;

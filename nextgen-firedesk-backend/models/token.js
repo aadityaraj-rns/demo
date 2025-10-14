@@ -1,15 +1,30 @@
-const mongoose = require("mongoose");
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../database/index");
 
-const { Schema } = mongoose;
-
-const refreshTokenSchema = Schema(
+const RefreshToken = sequelize.define(
+  "RefreshToken",
   {
-    token: { type: String, required: true },
-    userId: { type: mongoose.SchemaTypes.ObjectId, ref: "User" },
+    id: {
+      type: DataTypes.UUID,
+      defaultValue: DataTypes.UUIDV4,
+      primaryKey: true,
+    },
+    userId: {
+      type: DataTypes.UUID,
+      allowNull: false, 
+      unique: true, // one refresh token per user
+    },
+    token: {
+      type: DataTypes.TEXT,
+      allowNull: false,
+    },
   },
   {
+    tableName: "refresh_tokens",
     timestamps: true,
+    createdAt: "createdAt",
+    updatedAt: "updatedAt",
   }
 );
 
-module.exports = mongoose.model("RefreshToken", refreshTokenSchema, "tokens");
+module.exports = RefreshToken;

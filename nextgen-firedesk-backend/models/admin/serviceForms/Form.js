@@ -1,38 +1,32 @@
-const { Schema, default: mongoose } = require("mongoose");
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../../../database/index");
 
-const sectionSchema = new Schema(
-  {
-    name: {
-      type: String,
-      required: true,
-    },
-    testFrequency: {
-      type: String,
-      enum: ["Weekly", "Monthly", "Quarterly", "Semi-Annual", "Yearly",""],
-      required: false,
-    },
-    serviceType: {
-      type: String,
-      enum: ["Inspection", "Maintenance", "Testing"],
-      required: true,
-    },
-    questions: [
-      {
-        type: mongoose.SchemaTypes.ObjectId,
-        ref: "Question",
-        required: true,
-      },
-    ],
+const Form = sequelize.define("Form", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
   },
-  { _id: false } // 🔑 This disables _id for this subdocument
-);
-
-const formSchema = new Schema({
   serviceName: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING,
+    allowNull: false,
+    validate: {
+      notEmpty: true,
+    },
   },
-  sectionName: [sectionSchema],
+  status: {
+    type: DataTypes.ENUM("Active", "Deactive"),
+    defaultValue: "Active",
+  },
+  createdBy: {
+    type: DataTypes.UUID,
+    allowNull: false,
+  }
+}, {
+  tableName: "forms",
+  timestamps: true,
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
 });
 
-module.exports = mongoose.model("Form", formSchema, "forms");
+module.exports = Form;

@@ -1,147 +1,210 @@
+// controller/admin/masterData/selfAuditController.js
 const Joi = require("joi");
+const { sequelize } = require("../../../database/index");
 const SelfAudit = require("../../../models/admin/masterData/selfAudit");
-const mongodbIdPattern = /^[0-9a-fA-F]{24}$/;
+const SelfAuditCategory = require("../../../models/admin/masterData/selfAuditCategory");
+const SelfAuditQuestion = require("../../../models/admin/masterData/selfAuditQuestion");
+
+const schemaCreate = Joi.object({
+  name: Joi.string().required(),
+  categories: Joi.array().items(
+    Joi.object({
+      categoryName: Joi.string().required(),
+      questions: Joi.array().items(
+        Joi.object({
+          questionText: Joi.string().required(),
+          questionType: Joi.string().valid("Yes/No", "Input").required()
+        })
+      ).required()
+    })
+  ).required()
+});
 
 const selfAuditController = {
+  // create an audit with categories & questions
   async create(req, res, next) {
-    const validationSchema = Joi.object({
-      categories: Joi.array()
-        .items(
-          Joi.object({
-            categoryName: Joi.string().required(),
-            questions: Joi.array()
-              .items(
-                Joi.object({
-                  questionText: Joi.string().required(),
-                  questionType: Joi.string()
-                    .valid("Yes/No", "Input")
-                    .required(), // Validating question type
-                })
-              )
-              .required(),
-          })
-        )
-        .required(),
-    });
-
-    const { error } = validationSchema.validate(req.body);
-    if (error) {
-      return next(error);
-    }
-
-    const { categories } = req.body;
-
     try {
-      const existingSelfAudit = await SelfAudit.findOne();
-      if (existingSelfAudit) {
-        return res.status(400).json({ message: "SelfAudit already exists" });
+      const { error, value } = schemaCreate.validate(req.body);
+      if (error) return next(error);
+
+      const { name, categories } = value;
+      const t = await sequelize.transaction();
+
+      try {
+        const audit = await SelfAudit.create({ name }, { transaction: t });
+
+        for (const cat of categories) {
+          const createdCat = await SelfAuditCategory.create({
+            selfAuditId: audit.selfAuditId,
+            categoryName: cat.categoryName
+          }, { transaction: t });
+
+          if (Array.isArray(cat.questions)) {
+            for (const q of cat.questions) {
+              await SelfAuditQuestion.create({
+                selfAuditCategoryId: createdCat.selfAuditCategoryId,
+                questionText: q.questionText,
+                questionType: q.questionType
+              }, { transaction: t });
+            }
+          }
+        }
+
+        await t.commit();
+
+        const full = await SelfAudit.findByPk(audit.selfAuditId, {
+          include: [
+            { model: SelfAuditCategory, as: "categories", include: [{ model: SelfAuditQuestion, as: "questions" }] }
+          ]
+        });
+
+        return res.status(201).json({ selfAudit: full });
+      } catch (err) {
+        await t.rollback();
+        throw err;
       }
-
-      const newSelfAudit = new SelfAudit({
-        categories,
-      });
-
-      const savedSelfAudit = await newSelfAudit.save();
-      return res.json({ savedSelfAudit });
-    } catch (error) {
-      console.error("Error creating SelfAudit:", error);
-      throw error;
+    } catch (err) {
+      return next(err);
     }
   },
-  async update(req, res, next) {
-    const validationSchema = Joi.object({
-      _id: Joi.string().pattern(mongodbIdPattern),
-      categories: Joi.array()
-        .items(
-          Joi.object({
-            categoryName: Joi.string().required(),
-            questions: Joi.array()
-              .items(
-                Joi.object({
-                  questionText: Joi.string().required(),
-                  questionType: Joi.string()
-                    .valid("Yes/No", "Input")
-                    .required(), // Validating question type
-                })
-              )
-              .required(),
-          })
-        )
-        .required(),
-    });
 
-    const { error } = validationSchema.validate(req.body);
-    if (error) {
-      return next(error);
-    }
-
-    const { categories } = req.body;
-    const { _id } = req.params; // Assuming the ID is passed as a URL parameter
-
-    try {
-      const existingSelfAudit = await SelfAudit.findById(_id);
-      if (!existingSelfAudit) {
-        return res.status(404).json({ message: "SelfAudit not found" });
-      }
-
-      existingSelfAudit.categories = categories;
-
-      const updatedSelfAudit = await existingSelfAudit.save();
-      return res.json({ updatedSelfAudit });
-    } catch (error) {
-      console.error("Error updating SelfAudit:", error);
-      return next(error);
-    }
-  },
+  // get all audits with nested categories & questions
   async getAll(req, res, next) {
     try {
-      const selfAuditQuestions = await SelfAudit.findOne({});
-      return res.json({ selfAuditQuestions });
-    } catch (error) {
-      return next(error);
+      const audits = await SelfAudit.findAll({
+        include: [
+          { model: SelfAuditCategory, as: "categories", include: [{ model: SelfAuditQuestion, as: "questions" }] }
+        ],
+        order: [
+          ["created_at", "DESC"],
+          [{ model: SelfAuditCategory, as: "categories" }, "self_audit_category_id", "ASC"],
+          [{ model: SelfAuditCategory, as: "categories" }, { model: SelfAuditQuestion, as: "questions" }, "self_audit_question_id", "ASC"]
+        ]
+      });
+      return res.json({ audits });
+    } catch (err) {
+      return next(err);
     }
   },
-  // async update(req, res, next) {
-  //   const updateQuestionSchema = Joi.object({
-  //     selfAuditId: Joi.string()
-  //       .regex(mongodbIdPattern, "mongodbIdPattern")
-  //       .required(),
-  //     question: Joi.string().required(),
-  //     questionType: Joi.string().required(),
-  //     status: Joi.string().required(),
-  //   });
 
-  //   const { error } = updateQuestionSchema.validate(req.body);
+  // get single audit by id (id is numeric selfAuditId)
+  async getById(req, res, next) {
+    try {
+      const id = Number(req.params.id);
+      if (!id) return next({ status: 400, message: "Invalid id" });
 
-  //   if (error) {
-  //     return next(error);
-  //   }
+      const audit = await SelfAudit.findByPk(id, {
+        include: [
+          { model: SelfAuditCategory, as: "categories", include: [{ model: SelfAuditQuestion, as: "questions" }] }
+        ]
+      });
+      if (!audit) return next({ status: 404, message: "SelfAudit not found" });
+      return res.json({ selfAudit: audit });
+    } catch (err) {
+      return next(err);
+    }
+  },
 
-  //   const { selfAuditId, question, questionType, status } = req.body;
+  // update: replace categories & questions (simple reliable approach)
+  async update(req, res, next) {
+    try {
+      const id = Number(req.params.id);
+      if (!id) return next({ status: 400, message: "Invalid id" });
 
-  //   try {
-  //     const findQuestion = await SelfAudit.findOne({ _id: selfAuditId });
+      const { error, value } = schemaCreate.validate(req.body); // same schema (requires name+categories)
+      if (error) return next(error);
 
-  //     if (!findQuestion) {
-  //       const error = {
-  //         status: 404,
-  //         message: "Question not found",
-  //       };
-  //       return next(error);
-  //     }
-  //     await SelfAudit.updateOne(
-  //       { _id: selfAuditId },
-  //       {
-  //         question,
-  //         questionType,
-  //         status,
-  //       }
-  //     );
+      const { name, categories } = value;
 
-  //     return res.json({ msg: "Question updated" });
-  //   } catch (error) {
-  //     return next(error);
-  //   }
-  // },
+      const t = await sequelize.transaction();
+      try {
+        const audit = await SelfAudit.findByPk(id, { transaction: t });
+        if (!audit) {
+          await t.rollback();
+          return next({ status: 404, message: "SelfAudit not found" });
+        }
+
+        // update audit name
+        audit.name = name;
+        await audit.save({ transaction: t });
+
+        // remove existing questions and categories for this audit
+        const existingCats = await SelfAuditCategory.findAll({ where: { selfAuditId: id }, transaction: t });
+        const catIds = existingCats.map(c => c.selfAuditCategoryId);
+        if (catIds.length) {
+          await SelfAuditQuestion.destroy({ where: { selfAuditCategoryId: catIds }, transaction: t });
+        }
+        await SelfAuditCategory.destroy({ where: { selfAuditId: id }, transaction: t });
+
+        // recreate categories and questions
+        for (const cat of categories) {
+          const createdCat = await SelfAuditCategory.create({
+            selfAuditId: id,
+            categoryName: cat.categoryName
+          }, { transaction: t });
+
+          if (Array.isArray(cat.questions)) {
+            for (const q of cat.questions) {
+              await SelfAuditQuestion.create({
+                selfAuditCategoryId: createdCat.selfAuditCategoryId,
+                questionText: q.questionText,
+                questionType: q.questionType
+              }, { transaction: t });
+            }
+          }
+        }
+
+        await t.commit();
+
+        const full = await SelfAudit.findByPk(id, {
+          include: [
+            { model: SelfAuditCategory, as: "categories", include: [{ model: SelfAuditQuestion, as: "questions" }] }
+          ]
+        });
+
+        return res.json({ selfAudit: full });
+      } catch (err) {
+        await t.rollback();
+        throw err;
+      }
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  // delete
+  async delete(req, res, next) {
+    try {
+      const id = Number(req.params.id);
+      if (!id) return next({ status: 400, message: "Invalid id" });
+
+      const t = await sequelize.transaction();
+      try {
+        const audit = await SelfAudit.findByPk(id, { transaction: t });
+        if (!audit) {
+          await t.rollback();
+          return next({ status: 404, message: "SelfAudit not found" });
+        }
+
+        // delete questions => categories => audit
+        const cats = await SelfAuditCategory.findAll({ where: { selfAuditId: id }, transaction: t });
+        const catIds = cats.map(c => c.selfAuditCategoryId);
+        if (catIds.length) {
+          await SelfAuditQuestion.destroy({ where: { selfAuditCategoryId: catIds }, transaction: t });
+        }
+        await SelfAuditCategory.destroy({ where: { selfAuditId: id }, transaction: t });
+        await audit.destroy({ transaction: t });
+
+        await t.commit();
+        return res.json({ message: "SelfAudit deleted" });
+      } catch (err) {
+        await t.rollback();
+        throw err;
+      }
+    } catch (err) {
+      return next(err);
+    }
+  }
 };
+
 module.exports = selfAuditController;

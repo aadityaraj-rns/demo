@@ -1,32 +1,23 @@
-const mongoose = require("mongoose");
-const { Schema } = mongoose;
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../../../database/index");
 
-const QuestionSchema = new Schema({
-  questionText: {
-    type: String,
-    required: true,
+const OrgSelfAuditForm = sequelize.define("OrgSelfAuditForm", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
   },
-  ans: { type: Schema.Types.Mixed, required: true },
+  // TODO: Add specific fields based on original Mongoose model
+  data: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    defaultValue: {},
+  },
+}, {
+  tableName: "orgselfauditforms",
+  timestamps: true,
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
 });
 
-const CategorySchema = new Schema({
-  categoryName: {
-    type: String,
-    required: true,
-  },
-  questions: [QuestionSchema],
-});
-
-const orgSelfAuditSchema = new Schema(
-  {
-    orgUserId: { type: mongoose.SchemaTypes.ObjectId, ref: "User", required: true },
-    categories: [CategorySchema],
-    workPlace: { type: String, required: true },
-    inspectorName: { type: String, required: true },
-    additionalNotes: { type: String, required: false },
-  },
-  {
-    timestamps: true,
-  }
-);
-module.exports = mongoose.model("OrgSelfAuditForm", orgSelfAuditSchema);
+module.exports = OrgSelfAuditForm;

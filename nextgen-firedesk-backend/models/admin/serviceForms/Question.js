@@ -1,10 +1,23 @@
-const { required } = require("joi");
-const { Schema, default: mongoose } = require("mongoose");
+const { DataTypes } = require("sequelize");
+const { sequelize } = require("../../../database/index");
 
-const questionSchema = new Schema({
-  question: {
-    type: String,
-    required: true,
+const Question = sequelize.define("Question", {
+  id: {
+    type: DataTypes.UUID,
+    defaultValue: DataTypes.UUIDV4,
+    primaryKey: true,
   },
+  // TODO: Add specific fields based on original Mongoose model
+  data: {
+    type: DataTypes.JSONB,
+    allowNull: true,
+    defaultValue: {},
+  },
+}, {
+  tableName: "questions",
+  timestamps: true,
+  createdAt: "createdAt",
+  updatedAt: "updatedAt",
 });
-module.exports = mongoose.model("Question", questionSchema, "questions");
+
+module.exports = Question;

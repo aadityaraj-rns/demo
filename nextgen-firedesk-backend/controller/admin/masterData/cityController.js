@@ -1,158 +1,198 @@
 const Joi = require("joi");
-const City = require("../../../models/admin/masterData/city");
-const State = require("../../../models/admin/masterData/state");
-const CityDTO = require("../../../dto/city");
-
-const mongodbIdPattern = /^[0-9a-fA-F]{24}$/;
+const { Op } = require("sequelize");
+const { City, State } = require("../../../models/index");
+const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const cityController = {
   async create(req, res, next) {
-    const createCitySchema = Joi.object({
+    const schema = Joi.object({
       cityName: Joi.string().required(),
-      stateName: Joi.string().required(),
+      stateId: Joi.string().pattern(uuidPattern).required(),
     });
-    const { error } = createCitySchema.validate(req.body);
-    if (error) {
-      return next(error);
-    }
+    const { error } = schema.validate(req.body);
+    if (error) return next(error);
 
-    const { cityName, stateName } = req.body;
-    const state = await State.findOne({ stateName });
-    const stateId = state._id;
-
-    const findCity = await City.findOne({ cityName, stateId });
-    if (findCity) {
-      const error = {
-        status: 400,
-        message: "City name already exist",
-      };
-      return next(error);
-    }
-    let newCity;
+    const { cityName, stateId } = req.body;
     try {
-      newCity = new City({
-        cityName,
-        stateId,
-      });
-      await newCity.save();
+      const state = await State.findByPk(stateId);
+      if (!state) return next({ status: 400, message: "State not found" });
+
+      const findCity = await City.findOne({ where: { cityName, stateId } });
+      if (findCity) return next({ status: 400, message: "City name already exists for this state" });
+
+      const newCity = await City.create({ cityName, stateId, createdBy: req.user?.id || null });
+      return res.json({ newCity });
     } catch (error) {
       return next(error);
     }
-    return res.json({ newCity });
   },
 
   async getAll(req, res, next) {
     try {
-      const allCity = await City.find({})
-        .populate("stateId")
-        .sort({ createdAt: -1 });
-      const allCityDTO = allCity.map((city) => new CityDTO(city));
-      return res.json({ allCity: allCityDTO });
+      const allCity = await City.findAll({
+        include: [{ model: State, attributes: ["id", "stateName"] }],
+        order: [["createdAt", "DESC"]],
+      });
+      return res.json({ allCity });
     } catch (error) {
       return next(error);
     }
   },
+
   async update(req, res, next) {
-    const updateCitySchema = Joi.object({
-      _id: Joi.string().pattern(mongodbIdPattern).required(),
+    const schema = Joi.object({
+      id: Joi.string().pattern(uuidPattern).required(),
       cityName: Joi.string().required(),
-      stateName: Joi.string().required(),
-      status: Joi.string().required(),
+      stateId: Joi.string().pattern(uuidPattern).required(),
+      status: Joi.string().valid("Active", "Deactive").required(),
     });
+    const { error } = schema.validate(req.body);
+    if (error) return next(error);
 
-    const { error } = updateCitySchema.validate(req.body);
-    if (error) {
-      return next(error);
-    }
-
-    const { cityName, stateName, _id, status } = req.body;
-
-    const state = await State.findOne({ stateName });
-    const stateId = state._id;
-    const findCity = await City.findOne({ cityName, stateId });
-    if (findCity) {
-      const error = {
-        status: 400,
-        message: "City name already exist",
-      };
-      return next(error);
-    }
-
-    await City.updateOne(
-      {
-        _id,
-      },
-      {
-        cityName,
-        stateId: state._id,
-        status,
-      }
-    );
-
-    return res.json({ msg: "updated successfully" });
-  },
-  async getByStateName(req, res, next) {
-    const { stateName } = req.params;
+    const { id, cityName, stateId, status } = req.body;
 
     try {
-      const state = await State.findOne({ stateName });
+      const state = await State.findByPk(stateId);
+      if (!state) return next({ status: 400, message: "State not found" });
 
-      const cities = await City.find({ stateId: state._id }).populate(
-        "stateId"
+      const duplicateCity = await City.findOne({
+        where: { cityName, stateId, id: { [Op.ne]: id } },
+      });
+      if (duplicateCity) return next({ status: 400, message: "City name already exists for this state" });
+
+      const [rowsUpdated] = await City.update(
+        { cityName, stateId, status },
+        { where: { id } }
       );
 
-      const cityDTO = cities.map((city) => new CityDTO(city));
-      return res.json({ cities: cityDTO });
-    } catch (error) {
-      return next(error);
+      if (rowsUpdated === 0) return next({ status: 404, message: "City not found or no changes applied" });
+
+      const updatedCity = await City.findOne({
+        where: { id },
+        include: [{ model: State, attributes: ["id", "stateName"] }],
+      });
+
+      return res.json({ updatedCity });
+    } catch (err) {
+      return next(err);
     }
   },
+
+  async delete(req, res, next) {
+    const schema = Joi.object({ id: Joi.string().pattern(uuidPattern).required() });
+    const { error } = schema.validate(req.params);
+    if (error) return next(error);
+
+    const { id } = req.params;
+
+    try {
+      const destroyed = await City.destroy({ where: { id } });
+      if (!destroyed) return next({ status: 404, message: "City not found" });
+
+      return res.json({ msg: "City deleted successfully" });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
+  async getByStateName(req, res, next) {
+    const schema = Joi.object({ stateName: Joi.string().required() });
+    const { error } = schema.validate(req.params);
+    if (error) return next(error);
+
+    const { stateName } = req.params;
+    try {
+      const state = await State.findOne({ where: { stateName } });
+      if (!state) return next({ status: 404, message: "State not found" });
+
+      const cities = await City.findAll({
+        where: { stateId: state.id },
+        include: [{ model: State, attributes: ["id", "stateName"] }],
+        order: [["createdAt", "DESC"]],
+      });
+
+      return res.json({ cities });
+    } catch (err) {
+      return next(err);
+    }
+  },
+
   async activeCities(req, res, next) {
     try {
-      const cities = await City.find({ status: "Active" }).populate("stateId");
-      const cityDTO = cities.map((city) => new CityDTO(city));
-      return res.json({ cities: cityDTO });
-    } catch (error) {
-      return next(error);
+      const cities = await City.findAll({
+        where: { status: "Active" },
+        include: [{ model: State, attributes: ["id", "stateName"] }],
+        order: [["createdAt", "DESC"]],
+      });
+      return res.json({ cities });
+    } catch (err) {
+      return next(err);
     }
   },
-  async getActiveCitysByStateName(req, res, next) {
+
+  async getActiveCitiesByStateName(req, res, next) {
+    const schema = Joi.object({ stateName: Joi.string().required() });
+    const { error } = schema.validate(req.params);
+    if (error) return next(error);
+
     const { stateName } = req.params;
-
     try {
-      const state = await State.findOne({ stateName });
+      const state = await State.findOne({ where: { stateName } });
+      if (!state) return next({ status: 404, message: "State not found" });
 
-      const cities = await City.find({
-        stateId: state._id,
-        status: "Active",
-      }).populate("stateId");
+      const cities = await City.findAll({
+        where: { stateId: state.id, status: "Active" },
+        include: [{ model: State, attributes: ["id", "stateName"] }],
+        order: [["createdAt", "DESC"]],
+      });
 
-      const cityDTO = cities.map((city) => new CityDTO(city));
-      return res.json({ cities: cityDTO });
-    } catch (error) {
-      return next(error);
+      return res.json({ cities });
+    } catch (err) {
+      return next(err);
     }
   },
+
   async getByStateId(req, res, next) {
+    const schema = Joi.object({ stateId: Joi.string().pattern(uuidPattern).required() });
+    const { error } = schema.validate(req.params);
+    if (error) return next(error);
+
     const { stateId } = req.params;
     try {
-      const cities = await City.find({ stateId }).populate("stateId");
-      const cityDTO = cities.map((city) => new CityDTO(city));
-      return res.json({ cities: cityDTO });
-    } catch (error) {
-      return next(error);
+      const state = await State.findByPk(stateId);
+      if (!state) return next({ status: 404, message: "State not found" });
+
+      const cities = await City.findAll({
+        where: { stateId },
+        include: [{ model: State, attributes: ["id", "stateName"] }],
+        order: [["createdAt", "DESC"]],
+      });
+
+      return res.json({ cities });
+    } catch (err) {
+      return next(err);
     }
   },
-  async getActivecitysByStateId(req, res, next) {
+
+  async getActiveCitiesByStateId(req, res, next) {
+    const schema = Joi.object({ stateId: Joi.string().pattern(uuidPattern).required() });
+    const { error } = schema.validate(req.params);
+    if (error) return next(error);
+
     const { stateId } = req.params;
     try {
-      const cities = await City.find({ stateId, status: "Active" }).populate(
-        "stateId"
-      );
-      const cityDTO = cities.map((city) => new CityDTO(city));
-      return res.json({ cities: cityDTO });
-    } catch (error) {
-      return next(error);
+      const state = await State.findByPk(stateId);
+      if (!state) return next({ status: 404, message: "State not found" });
+
+      const cities = await City.findAll({
+        where: { stateId, status: "Active" },
+        include: [{ model: State, attributes: ["id", "stateName"] }],
+        order: [["createdAt", "DESC"]],
+      });
+
+      return res.json({ cities });
+    } catch (err) {
+      return next(err);
     }
   },
 };

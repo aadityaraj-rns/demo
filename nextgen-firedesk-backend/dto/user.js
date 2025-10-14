@@ -1,13 +1,16 @@
 class UserDTO {
   constructor(user) {
-    this._id = user._id;
-    this.userType = user.userType;
-    this.name = user.name;
-    this.phone = user.phone;
-    this.email = user.email;
-    this.displayName=user.displayName;
-    this.profile = user.profile;
-    this.loginID = user.loginID;
+    this.id = user.id; // UUID from PostgreSQL
+    this.userType = user.userType || "admin";
+    this.name = user.name || "";
+    this.email = user.email || "";
+    this.phone = user.phone || "";
+    this.displayName = user.displayName || "";
+    this.profile = user.profile || "";
+    this.loginID = user.loginID || ""; // optional field for legacy frontend
+    this.createdAt = user.createdAt || null;
+    this.updatedAt = user.updatedAt || null;
   }
 }
+
 module.exports = UserDTO;

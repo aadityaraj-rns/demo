@@ -6,7 +6,7 @@ const ServiceTickets = require("../../../models/organization/service/ServiceTick
 const Form = require("../../../models/admin/serviceForms/Form");
 const Technician = require("../../../models/organization/technician/Technician");
 const Notification = require("../../../models/Notification");
-const { default: mongoose } = require("mongoose");
+// const { default: mongoose } = require("mongoose"); // Removed for PostgreSQL migration
 
 const mongodbIdPattern = /^[0-9a-fA-F]{24}$/;
 

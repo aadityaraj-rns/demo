@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+// const mongoose = require("mongoose"); // Removed for PostgreSQL migration - TODO: Refactor aggregation queries
 const moment = require("moment");
 const Asset = require("../../../models/organization/asset/Asset");
 const Joi = require("joi");

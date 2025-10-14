@@ -10,7 +10,7 @@ const sendSMS = require("../../../utils/sendSMS");
 const notification = require("../../../models/Notification");
 const pushNotification = require("../../firebasePushNotification/pushNotificationControlleer");
 const Asset = require("../../../models/organization/asset/Asset");
-const { default: mongoose } = require("mongoose");
+// const { default: mongoose } = require("mongoose"); // Removed for PostgreSQL migration
 
 const mongodbIdPattern = /^[0-9a-fA-F]{24}$/;
 
