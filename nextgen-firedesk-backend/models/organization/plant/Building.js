@@ -19,7 +19,7 @@ const Building = sequelize.define("Building", {
   },
   buildingName: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
   buildingHeight: {
     type: DataTypes.DECIMAL(6, 2),

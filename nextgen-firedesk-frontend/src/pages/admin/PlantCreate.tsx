@@ -282,15 +282,52 @@ export default function PlantCreate() {
 
   const loadCitiesForState = async (stateId: string) => {
     try {
-      const response = await api.get(`/city?stateId=${stateId}`);
-      const cities = (response as any)?.allCity || [];
+      const response = await api.get(`/city/stateId/${stateId}`);
+      const cities = (response as any)?.cities || (response as any)?.allCity || [];
       setMasterData((prev: any) => ({ ...prev, cities }));
     } catch (error) {
       console.error("Failed to fetch cities:", error);
     }
   };
 
-  // Save and submit function implementations ...
+  const handleSaveDraft = async () => {
+    setIsSaving(true);
+    try {
+      const payload: any = { ...formData, status: 'Draft' };
+      // normalize empty strings to null for numeric/date-like fields already handled in backend
+      const res = await api.post('/plant', payload);
+      toast({ title: 'Success', description: 'Plant saved as draft successfully!' });
+      navigate('/admin/plants');
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.response?.data?.message || 'Failed to save draft', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveAndContinue = async () => {
+    // advance wizard until final submission
+    const currentIndex = steps.findIndex((s) => s.id === activeTab);
+    const nextStep = steps.find((s, idx) => idx > currentIndex && !s.hidden);
+    if (nextStep) {
+      setActiveTab(nextStep.id);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    // final submit
+    setIsSaving(true);
+    try {
+      const payload: any = { ...formData, status: 'Active' };
+      const res = await api.post('/plant', payload);
+      toast({ title: 'Success', description: 'Plant created successfully!' });
+      navigate('/admin/plants');
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.response?.data?.message || 'Failed to create plant', variant: 'destructive' });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-background">
@@ -402,17 +439,13 @@ export default function PlantCreate() {
               <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-border">
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    /* handleSaveDraft function */
-                  }}
+                  onClick={handleSaveDraft}
                   disabled={isSaving}
                 >
                   Save as Draft
                 </Button>
                 <Button
-                  onClick={() => {
-                    /* handleSaveAndContinue function */
-                  }}
+                  onClick={handleSaveAndContinue}
                   disabled={isSaving}
                 >
                   {isSaving

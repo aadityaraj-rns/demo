@@ -17,7 +17,7 @@ const Plant = sequelize.define("Plant", {
   },
   address: {
     type: DataTypes.TEXT,
-    allowNull: false,
+    allowNull: true,
     validate: {
       notEmpty: true,
     },

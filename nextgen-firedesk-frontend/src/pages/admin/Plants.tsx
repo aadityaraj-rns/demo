@@ -161,10 +161,7 @@ export default function Plants() {
       };
 
       if (editingPlant) {
-        await api.put('/plant', {
-          id: editingPlant.id,
-          ...payload,
-        });
+        await api.put(`/plant/${editingPlant.id}`, payload);
         toast({ title: 'Success', description: 'Plant updated successfully' });
       } else {
         await api.post('/plant', payload);

@@ -39,22 +39,27 @@ const plantController = {
     try {
       console.log('GET /plant called by user:', req.user.id, req.user.userType);
       
+      const includeManagers = [];
       let whereCondition = {};
-      
-      // Handle manager case - managers only see their assigned plants
+
+      // Handle manager case - managers only see plants they are assigned to (via junction table)
       if (req.user.userType === "manager") {
         const manager = await Manager.findOne({ 
           where: { userId: req.user.id }
         });
-        
         if (manager) {
-          whereCondition = {
-            orgUserId: manager.orgUserId,
-            managerId: manager.id
-          };
+          // Optionally scope by org
+          whereCondition = { orgUserId: manager.orgUserId };
+          includeManagers.push({
+            model: Manager,
+            as: 'managers',
+            through: { attributes: [] },
+            where: { id: manager.id },
+            required: true,
+            include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }]
+          });
         }
       }
-      // Admin users see all plants - no filtering needed
 
       const plants = await Plant.findAll({
         where: whereCondition,
@@ -76,16 +81,15 @@ const plantController = {
             model: Industry,
             as: 'industry'
           },
-          {
-            model: Manager,
-            as: 'managers', // Fixed: changed from 'manager' to 'managers'
-            through: { attributes: [] }, // Exclude junction table fields
-            include: [{
-              model: User,
-              as: 'user',
-              attributes: ['id', 'name', 'email']
-            }]
-          }
+          // If manager user, includeManagers contains a filtered include; otherwise include all managers
+          ...(includeManagers.length
+            ? includeManagers
+            : [{
+                model: Manager,
+                as: 'managers',
+                through: { attributes: [] },
+                include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }]
+              }])
         ]
       });
 
@@ -167,14 +171,15 @@ const plantController = {
         // Basic Info
         plantId: Joi.string().optional().allow(''),
         plantName: Joi.string().required(),
-        address: Joi.string().required(),
+        address: Joi.string().optional().allow(''),
         address2: Joi.string().optional().allow(''),
-        cityId: Joi.string().uuid().required(),
-        stateId: Joi.string().uuid().required(),
+        cityId: Joi.string().uuid().optional().allow(null),
+        stateId: Joi.string().uuid().optional().allow(null),
         zipCode: Joi.string().optional().allow(''),
         gstNo: Joi.string().optional().allow(''),
-        industryId: Joi.string().uuid().required(),
+        industryId: Joi.string().uuid().optional().allow(null),
         managerId: Joi.string().uuid().optional().allow('', null),
+        managerIds: Joi.array().items(Joi.string().uuid()).optional(),
         plantImage: Joi.string().optional().allow(''),
         
         // Premises Details
@@ -296,6 +301,7 @@ const plantController = {
         gstNo,
         industryId,
         managerId,
+        managerIds = [],
         plantImage,
         status,
         ...otherFields
@@ -365,6 +371,14 @@ const plantController = {
 
       const newPlant = await Plant.create(plantData);
 
+      // Handle many-to-many manager assignments if provided
+      if (Array.isArray(managerIds) && managerIds.length > 0) {
+        const managers = await Manager.findAll({ where: { id: managerIds } });
+        if (managers.length > 0) {
+          await newPlant.setManagers(managers.map(m => m.id));
+        }
+      }
+
       // Log activity
       await ActivityService.logPlantCreated(newPlant, req.user);
 
@@ -406,14 +420,15 @@ const plantController = {
       const plantUpdateSchema = Joi.object({
         // Basic Info
         plantName: Joi.string().optional(),
-        address: Joi.string().optional(),
+        address: Joi.string().optional().allow(''),
         address2: Joi.string().optional().allow(''),
-        cityId: Joi.string().uuid().optional(),
-        stateId: Joi.string().uuid().optional(),
+        cityId: Joi.string().uuid().optional().allow(null),
+        stateId: Joi.string().uuid().optional().allow(null),
         zipCode: Joi.string().optional().allow(''),
         gstNo: Joi.string().optional().allow(''),
-        industryId: Joi.string().uuid().optional(),
+        industryId: Joi.string().uuid().optional().allow(null),
         managerId: Joi.string().uuid().optional().allow('', null),
+        managerIds: Joi.array().items(Joi.string().uuid()).optional(),
         plantImage: Joi.string().optional().allow(''),
         
         // Premises Details
@@ -540,11 +555,18 @@ const plantController = {
       delete updateData.updatedAt;
       delete updateData.plantId; // Don't allow changing generated ID
       delete updateData.orgUserId; // Don't allow changing org
+      const managerIds = Array.isArray(req.body.managerIds) ? req.body.managerIds : [];
 
       // Store old plant data for activity logging
       const oldPlant = plant.toJSON();
 
       await plant.update(updateData);
+
+      // Update many-to-many manager assignment if provided
+      if (managerIds.length > 0) {
+        const managers = await Manager.findAll({ where: { id: managerIds } });
+        await plant.setManagers(managers.map(m => m.id));
+      }
 
       // Log activity
       await ActivityService.logPlantUpdated(oldPlant, plant, req.user);
@@ -616,20 +638,25 @@ const plantController = {
   async getAllActive(req, res, next) {
     try {
       let orgUserId = req.user.id;
-      let whereCondition = { 
-        orgUserId,
-        status: 'Active'
-      };
+      let whereCondition = { status: 'Active' };
+      const includeManagers = [];
       
       if (req.user.userType === "manager") {
-        const manager = await Manager.findOne({ 
-          where: { userId: req.user.id }
-        });
-        
+        const manager = await Manager.findOne({ where: { userId: req.user.id } });
         if (manager) {
           orgUserId = manager.orgUserId;
-          whereCondition.managerId = manager.id;
+          whereCondition.orgUserId = orgUserId;
+          includeManagers.push({
+            model: Manager,
+            as: 'managers',
+            through: { attributes: [] },
+            where: { id: manager.id },
+            required: true,
+          });
         }
+      } else {
+        // Admin users - optionally scope to org if needed
+        whereCondition.orgUserId = orgUserId;
       }
 
       const plants = await Plant.findAll({
@@ -645,7 +672,8 @@ const plantController = {
             model: State,
             as: 'state',
             attributes: ['id', 'stateName']
-          }
+          },
+          ...includeManagers
         ]
       });
 

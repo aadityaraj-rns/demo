@@ -19,7 +19,7 @@ const Floor = sequelize.define("Floor", {
   },
   floorName: {
     type: DataTypes.STRING,
-    allowNull: false,
+    allowNull: true,
   },
   usage: {
     type: DataTypes.STRING,

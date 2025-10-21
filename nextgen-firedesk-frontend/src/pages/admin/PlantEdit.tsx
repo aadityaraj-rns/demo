@@ -92,6 +92,10 @@ export default function PlantEdit() {
               cleanedPlant[key] = value; // Keep all other values as-is
             }
           });
+          // Map existing managers to managerIds for multi-select UI
+          if (Array.isArray(plant.managers)) {
+            cleanedPlant.managerIds = plant.managers.map((m: any) => m.id);
+          }
           
           console.log('Cleaned plant data:', cleanedPlant);
           console.log('Premises data:', {
@@ -105,8 +109,8 @@ export default function PlantEdit() {
           
           // Load cities for the plant's state
           if (plant.stateId) {
-            const citiesRes = await api.get(`/city?stateId=${plant.stateId}`);
-            const cities = (citiesRes as any)?.allCity || [];
+            const citiesRes = await api.get(`/city/stateId/${plant.stateId}`);
+            const cities = (citiesRes as any)?.cities || (citiesRes as any)?.allCity || [];
             setMasterData((prev: any) => ({ ...prev, cities }));
           }
         }
@@ -128,8 +132,8 @@ export default function PlantEdit() {
   // Fetch cities when state is selected
   const loadCitiesForState = async (stateId: string) => {
     try {
-      const response = await api.get(`/city?stateId=${stateId}`);
-      const cities = (response as any)?.allCity || [];
+      const response = await api.get(`/city/stateId/${stateId}`);
+      const cities = (response as any)?.cities || (response as any)?.allCity || [];
       setMasterData((prev: any) => ({ ...prev, cities }));
     } catch (error) {
       console.error('Failed to fetch cities:', error);

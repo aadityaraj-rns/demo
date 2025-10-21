@@ -140,6 +140,8 @@ export function PlantInfoStep({
               ))}
             </SelectContent>
           </Select>
+          {/* Hidden field to ensure managerIds array exists in payload */}
+          <input type="hidden" name="managerIds" value={(formData.managerIds || []).join(',')} />
           
           {/* Display selected managers */}
           {formData.managerIds?.length > 0 && (
