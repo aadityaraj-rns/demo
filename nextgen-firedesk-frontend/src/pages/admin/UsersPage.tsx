@@ -121,7 +121,7 @@ export const UsersPage: React.FC = () => {
 
   const fetchPlants = async () => {
     try {
-      const response = await api.get('/plants');
+      const response = await api.get('/organisation/plant');
       console.log('Plants response:', response); // Debug log
       setPlants(response.plants || []);
     } catch (error: any) {

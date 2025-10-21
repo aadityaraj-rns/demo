@@ -106,7 +106,7 @@ export default function Plants() {
       setLoading(true);
 
       const [plantsRes, statesRes, citiesRes, industriesRes] = await Promise.all([
-        api.get('/plant').catch((err: any) => ({ __error: err })),
+        api.get('/organisation/plant').catch((err: any) => ({ __error: err })),
         api.get('/state/active').catch((err: any) => ({ __error: err })),
         api.get('/city/active').catch((err: any) => ({ __error: err })),
         api.get('/industry/active').catch((err: any) => ({ __error: err })),
@@ -161,13 +161,13 @@ export default function Plants() {
       };
 
       if (editingPlant) {
-        await api.put('/plant', {
+        await api.put('/organisation/plant', {
           id: editingPlant.id,
           ...payload,
         });
         toast({ title: 'Success', description: 'Plant updated successfully' });
       } else {
-        await api.post('/plant', payload);
+        await api.post('/organisation/plant', payload);
         toast({ title: 'Success', description: 'Plant created successfully' });
       }
 
@@ -187,7 +187,7 @@ export default function Plants() {
     if (!confirm('Are you sure you want to delete this plant?')) return;
 
     try {
-      await api.delete(`/plant/${plantId}`);
+      await api.delete(`/organisation/plant/${plantId}`);
       toast({ title: 'Success', description: 'Plant deleted successfully' });
       await loadData();
     } catch (error: any) {

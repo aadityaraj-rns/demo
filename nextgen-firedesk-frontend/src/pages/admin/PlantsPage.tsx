@@ -44,7 +44,7 @@ export default function Plants() {
   const fetchPlants = async () => {
     try {
       setIsLoading(true);
-      const response = await api.get('/plant') as any;
+      const response = await api.get('/organisation/plant') as any;
       
       if (response.success) {
         setPlants(response.plants || []);

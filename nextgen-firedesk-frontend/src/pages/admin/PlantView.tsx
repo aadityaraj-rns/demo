@@ -21,7 +21,7 @@ export default function PlantView() {
   const fetchPlant = async () => {
     try {
       setIsLoading(true);
-      const response = await api.get(`/plant/${id}`) as any;
+      const response = await api.get(`/organisation/plant/${id}`) as any;
       
       if (response.success) {
         setPlant(response.plant);
@@ -42,7 +42,7 @@ export default function PlantView() {
     if (!confirm('Are you sure you want to delete this plant?')) return;
     
     try {
-      await api.delete(`/plant/${id}`);
+      await api.delete(`/organisation/plant/${id}`);
       toast({
         title: "Success",
         description: "Plant deleted successfully!",

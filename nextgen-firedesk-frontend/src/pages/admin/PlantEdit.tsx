@@ -47,10 +47,10 @@ export default function PlantEdit() {
       try {
         // Fetch master data
         const [statesRes, industriesRes, managersRes, categoriesRes] = await Promise.all([
-          api.get('/state'),
-          api.get('/industry'),
-          api.get('/manager'),
-          api.get('/category'),
+          api.get('/state/active'),
+          api.get('/industry/active'),
+          api.get('/manager/active'),
+          api.get('/category/active'),
         ]);
 
         console.log('=== MASTER DATA LOADED ===');
@@ -58,17 +58,17 @@ export default function PlantEdit() {
         console.log('Managers Array:', (managersRes as any)?.allManager);
 
         setMasterData({
-          states: (statesRes as any)?.allState || [],
+          states: (statesRes as any)?.allState || (statesRes as any)?.states || [],
           cities: [], // Will be loaded based on selected state
-          industries: (industriesRes as any)?.allIndustry || [],
-          managers: (managersRes as any)?.allManager || [],
-          categories: (categoriesRes as any)?.allCategory || [],
+          industries: (industriesRes as any)?.allIndustry || (industriesRes as any)?.industries || [],
+          managers: (managersRes as any)?.allManager || (managersRes as any)?.managers || [],
+          categories: (categoriesRes as any)?.allCategory || (categoriesRes as any)?.categories || [],
         });
 
         console.log('Loaded managers:', (managersRes as any)?.allManager);
 
         // Fetch plant data
-        const plantRes = await api.get(`/plant/${id}`);
+        const plantRes = await api.get(`/organisation/plant/${id}`);
         const plant = (plantRes as any)?.plant;
         
         console.log('Fetched plant data:', plant);
@@ -105,8 +105,8 @@ export default function PlantEdit() {
           
           // Load cities for the plant's state
           if (plant.stateId) {
-            const citiesRes = await api.get(`/city?stateId=${plant.stateId}`);
-            const cities = (citiesRes as any)?.allCity || [];
+            const citiesRes = await api.get(`/city/active/stateId/${plant.stateId}`);
+            const cities = (citiesRes as any)?.allCity || (citiesRes as any)?.cities || [];
             setMasterData((prev: any) => ({ ...prev, cities }));
           }
         }
@@ -128,8 +128,8 @@ export default function PlantEdit() {
   // Fetch cities when state is selected
   const loadCitiesForState = async (stateId: string) => {
     try {
-      const response = await api.get(`/city?stateId=${stateId}`);
-      const cities = (response as any)?.allCity || [];
+      const response = await api.get(`/city/active/stateId/${stateId}`);
+      const cities = (response as any)?.allCity || (response as any)?.cities || [];
       setMasterData((prev: any) => ({ ...prev, cities }));
     } catch (error) {
       console.error('Failed to fetch cities:', error);
@@ -184,7 +184,7 @@ export default function PlantEdit() {
       
       console.log('Saving draft with cleaned data:', plantData);
       
-      const response = await api.put(`/plant/${id}`, plantData);
+      const response = await api.put(`/organisation/plant/${id}`, plantData);
       
       toast({
         title: "Success",
@@ -264,10 +264,10 @@ export default function PlantEdit() {
       
       console.log('Final submit with cleaned data:', plantData);
       
-      console.log('Sending UPDATE request to:', `/plant/${id}`);
+      console.log('Sending UPDATE request to:', `/organisation/plant/${id}`);
       console.log('With data:', plantData);
       
-      const response = await api.put(`/plant/${id}`, plantData);
+      const response = await api.put(`/organisation/plant/${id}`, plantData);
       
       console.log('Update response:', response);
       

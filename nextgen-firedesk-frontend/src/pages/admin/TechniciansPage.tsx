@@ -109,7 +109,7 @@ export const TechniciansPage: React.FC = () => {
       setIsLoading(true);
       const [techniciansResponse, plantsResponse, categoriesResponse, managersResponse, rolesResponse] = await Promise.all([
         api.get('/technician'),
-        api.get('/plants'),
+        api.get('/organisation/plant'),
         api.get('/category/active'),
         api.get('/manager/active'),
         api.get('/role')

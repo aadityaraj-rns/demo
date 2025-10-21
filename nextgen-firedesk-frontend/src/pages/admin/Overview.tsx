@@ -100,7 +100,7 @@ export default function Overview() {
           api.get('/city'),
           api.get('/category'),
           api.get('/product'),
-          api.get('/plant'),
+          api.get('/organisation/plant'),
           api.get('/asset'),
           api.get('/manager'),
           api.get('/technician'),

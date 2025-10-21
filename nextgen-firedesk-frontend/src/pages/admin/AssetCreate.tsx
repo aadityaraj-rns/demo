@@ -35,7 +35,7 @@ export default function AssetCreate() {
     const fetchMasterData = async () => {
       try {
         const [plantsRes, categoriesRes, productsRes] = await Promise.all([
-          api.get("/plant"),
+          api.get("/organisation/plant"),
           api.get("/category"),
           api.get("/product"),
         ]);

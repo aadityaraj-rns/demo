@@ -38,7 +38,7 @@ export default function AssetEdit() {
   const fetchMasterData = async () => {
     try {
       const [plantsRes, categoriesRes, productsRes] = await Promise.all([
-        api.get("/plant"),
+        api.get("/organisation/plant"),
         api.get("/category"),
         api.get("/product"),
       ]);

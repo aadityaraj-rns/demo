@@ -67,7 +67,7 @@ export const ManagersPage: React.FC = () => {
       const [managersResponse, usersResponse, plantsResponse] = await Promise.all([
         api.get('/manager'),
         api.get('/admin/users'),
-        api.get('/plants')
+        api.get('/organisation/plant')
       ]);
 
       setManagers(managersResponse.allManager || []);

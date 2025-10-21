@@ -329,7 +329,9 @@ router.get("/manager-name", auth, organizationController.allManagerNames);
 router.put("/manager", auth, organizationController.editManager);
 // create Plant
 router.post("/plant", auth, upload.any(), plantController.create);
-router.put("/plant/:id", auth, upload.any(), plantController.editPlant);
+router.get("/plant/:id", auth, plantController.getById);
+router.put("/plant/:id", auth, upload.any(), plantController.update);
+router.delete("/plant/:id", auth, plantController.delete);
 router.get(
   "/get-pump-iot-device-id-by-plant/:id",
   auth,
