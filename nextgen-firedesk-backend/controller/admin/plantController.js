@@ -167,14 +167,15 @@ const plantController = {
         // Basic Info
         plantId: Joi.string().optional().allow(''),
         plantName: Joi.string().required(),
-        address: Joi.string().required(),
+        address: Joi.string().optional().allow('', null),
         address2: Joi.string().optional().allow(''),
-        cityId: Joi.string().uuid().required(),
-        stateId: Joi.string().uuid().required(),
+        cityId: Joi.string().uuid().optional().allow(null),
+        stateId: Joi.string().uuid().optional().allow(null),
         zipCode: Joi.string().optional().allow(''),
         gstNo: Joi.string().optional().allow(''),
-        industryId: Joi.string().uuid().required(),
+        industryId: Joi.string().uuid().optional().allow(null),
         managerId: Joi.string().uuid().optional().allow('', null),
+        managerIds: Joi.array().items(Joi.string().uuid()).optional(),
         plantImage: Joi.string().optional().allow(''),
         
         // Premises Details
@@ -296,6 +297,7 @@ const plantController = {
         gstNo,
         industryId,
         managerId,
+        managerIds,
         plantImage,
         status,
         ...otherFields
@@ -365,6 +367,11 @@ const plantController = {
 
       const newPlant = await Plant.create(plantData);
 
+      // Assign multiple managers if provided
+      if (Array.isArray(managerIds) && newPlant.setManagers) {
+        await newPlant.setManagers(managerIds);
+      }
+
       // Log activity
       await ActivityService.logPlantCreated(newPlant, req.user);
 
@@ -406,14 +413,15 @@ const plantController = {
       const plantUpdateSchema = Joi.object({
         // Basic Info
         plantName: Joi.string().optional(),
-        address: Joi.string().optional(),
+        address: Joi.string().optional().allow('', null),
         address2: Joi.string().optional().allow(''),
-        cityId: Joi.string().uuid().optional(),
-        stateId: Joi.string().uuid().optional(),
+        cityId: Joi.string().uuid().optional().allow(null),
+        stateId: Joi.string().uuid().optional().allow(null),
         zipCode: Joi.string().optional().allow(''),
         gstNo: Joi.string().optional().allow(''),
-        industryId: Joi.string().uuid().optional(),
+        industryId: Joi.string().uuid().optional().allow(null),
         managerId: Joi.string().uuid().optional().allow('', null),
+        managerIds: Joi.array().items(Joi.string().uuid()).optional(),
         plantImage: Joi.string().optional().allow(''),
         
         // Premises Details
@@ -545,6 +553,11 @@ const plantController = {
       const oldPlant = plant.toJSON();
 
       await plant.update(updateData);
+
+      // Update multiple manager assignments if provided
+      if (Array.isArray(req.body.managerIds) && plant.setManagers) {
+        await plant.setManagers(req.body.managerIds);
+      }
 
       // Log activity
       await ActivityService.logPlantUpdated(oldPlant, plant, req.user);

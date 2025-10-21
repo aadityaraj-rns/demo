@@ -252,16 +252,16 @@ export default function PlantCreate() {
       try {
         const [statesRes, industriesRes, managersRes, categoriesRes] =
           await Promise.all([
-            api.get("/state"),
-            api.get("/industry"),
-            api.get("/manager"),
+            api.get("/state/active"),
+            api.get("/industry/active"),
+            api.get("/manager/active"),
             api.get("/category"),
           ]);
 
         setMasterData({
-          states: (statesRes as any)?.allState || [],
+          states: (statesRes as any)?.allState || (statesRes as any)?.states || [],
           cities: [], // Loaded on state selection
-          industries: (industriesRes as any)?.allIndustry || [],
+          industries: (industriesRes as any)?.allIndustry || (industriesRes as any)?.industries || [],
           managers: (managersRes as any)?.allManager || [],
           categories: (categoriesRes as any)?.allCategory || [],
         });
@@ -282,8 +282,9 @@ export default function PlantCreate() {
 
   const loadCitiesForState = async (stateId: string) => {
     try {
-      const response = await api.get(`/city?stateId=${stateId}`);
-      const cities = (response as any)?.allCity || [];
+      // Use backend active cities by stateId endpoint
+      const response = await api.get(`/city/active/stateId/${stateId}`);
+      const cities = (response as any)?.cities || (response as any)?.allCity || [];
       setMasterData((prev: any) => ({ ...prev, cities }));
     } catch (error) {
       console.error("Failed to fetch cities:", error);
@@ -291,6 +292,129 @@ export default function PlantCreate() {
   };
 
   // Save and submit function implementations ...
+  const handleSaveDraft = async () => {
+    setIsSaving(true);
+    try {
+      const {
+        orgName,
+        createdDate,
+        orgId,
+        city,
+        state,
+        industry,
+        manager,
+        plantId,
+        orgUserId,
+        createdAt,
+        updatedAt,
+        ...validPlantData
+      } = formData;
+
+      const numericFields = [
+        'headerPressure', 'mainWaterStorage', 'primeWaterTankStorage',
+        'dieselStorage', 'primeOverTankCapacity2', 'staircaseFireRating',
+        'numberOfBasements', 'numberOfFloors', 'builtUpArea', 'plotArea'
+      ];
+      const enumFields = ['pressureUnit'];
+
+      const cleanData: any = {};
+      Object.keys(validPlantData).forEach((key) => {
+        const value = validPlantData[key];
+        if (value !== null && value !== undefined) {
+          if (value === '' && (numericFields.includes(key) || enumFields.includes(key))) {
+            cleanData[key] = null;
+          } else if (value !== '') {
+            cleanData[key] = value;
+          }
+        }
+      });
+
+      const payload = { ...cleanData, status: 'Draft' };
+
+      await api.post(`/plant`, payload);
+
+      toast({
+        title: 'Success',
+        description: 'Plant saved as draft successfully!',
+      });
+      navigate('/admin/plants');
+    } catch (error: any) {
+      console.error('Failed to save draft:', error);
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to save plant as draft',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveAndContinue = () => {
+    const currentIndex = steps.findIndex((s) => s.id === activeTab);
+    const nextStep = steps.find((s, idx) => idx > currentIndex && !s.hidden);
+    if (nextStep) {
+      setActiveTab(nextStep.id);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      handleFinalSubmit();
+    }
+  };
+
+  const handleFinalSubmit = async () => {
+    setIsSaving(true);
+    try {
+      const {
+        orgName,
+        createdDate,
+        orgId,
+        city,
+        state,
+        industry,
+        manager,
+        plantId,
+        orgUserId,
+        createdAt,
+        updatedAt,
+        ...validPlantData
+      } = formData;
+
+      const numericFields = [
+        'headerPressure', 'mainWaterStorage', 'primeWaterTankStorage',
+        'dieselStorage', 'primeOverTankCapacity2', 'staircaseFireRating',
+        'numberOfBasements', 'numberOfFloors', 'builtUpArea', 'plotArea'
+      ];
+      const enumFields = ['pressureUnit'];
+
+      const cleanData: any = {};
+      Object.keys(validPlantData).forEach((key) => {
+        const value = validPlantData[key];
+        if (value !== null && value !== undefined) {
+          if (value === '' && (numericFields.includes(key) || enumFields.includes(key))) {
+            cleanData[key] = null;
+          } else if (value !== '') {
+            cleanData[key] = value;
+          }
+        }
+      });
+
+      const payload = { ...cleanData, status: 'Active' };
+
+      await api.post(`/plant`, payload);
+
+      toast({ title: 'Success', description: 'Plant created successfully!' });
+      navigate('/admin/plants');
+    } catch (error: any) {
+      console.error('Failed to create plant:', error);
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to create plant',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-background">
@@ -402,17 +526,13 @@ export default function PlantCreate() {
               <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-border">
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    /* handleSaveDraft function */
-                  }}
+                  onClick={handleSaveDraft}
                   disabled={isSaving}
                 >
                   Save as Draft
                 </Button>
                 <Button
-                  onClick={() => {
-                    /* handleSaveAndContinue function */
-                  }}
+                  onClick={handleSaveAndContinue}
                   disabled={isSaving}
                 >
                   {isSaving

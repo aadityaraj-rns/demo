@@ -75,14 +75,15 @@ const plantController = {
         // Basic Info
         plantId: Joi.string().optional().allow(''),
         plantName: Joi.string().required(),
-        address: Joi.string().required(),
+        address: Joi.string().optional().allow('', null),
         address2: Joi.string().optional().allow(''),
-        cityId: Joi.string().uuid().required(),
-        stateId: Joi.string().uuid().required(),
+        cityId: Joi.string().uuid().optional().allow(null),
+        stateId: Joi.string().uuid().optional().allow(null),
         zipCode: Joi.string().optional().allow(''),
         gstNo: Joi.string().optional().allow(''),
-        industryId: Joi.string().uuid().required(),
+        industryId: Joi.string().uuid().optional().allow(null),
         managerId: Joi.string().uuid().optional().allow('', null),
+        managerIds: Joi.array().items(Joi.string().uuid()).optional(),
         plantImage: Joi.string().optional().allow(''),
         
         // Premises Details
@@ -203,6 +204,7 @@ const plantController = {
         gstNo,
         industryId,
         managerId,
+        managerIds,
         plantImage,
         status,
         ...otherFields
@@ -266,6 +268,11 @@ const plantController = {
 
       const newPlant = await Plant.create(plantData);
 
+      // Multi-manager assignment if provided
+      if (Array.isArray(managerIds) && newPlant.setManagers) {
+        await newPlant.setManagers(managerIds);
+      }
+
       // Fetch the created plant with associations
       const createdPlant = await Plant.findByPk(newPlant.id, {
         include: [
@@ -301,11 +308,12 @@ const plantController = {
       const plantUpdateSchema = Joi.object({
         id: Joi.string().uuid().required(),
         plantName: Joi.string().optional(),
-        address: Joi.string().optional(),
+        address: Joi.string().optional().allow('', null),
         cityId: Joi.string().uuid().optional(),
         stateId: Joi.string().uuid().optional(),
         industryId: Joi.string().uuid().optional(),
         managerId: Joi.string().uuid().optional().allow('', null),
+        managerIds: Joi.array().items(Joi.string().uuid()).optional(),
         status: Joi.string().valid("Active", "Deactive").optional(),
         headerPressure: Joi.string().optional().allow(''),
         pressureUnit: Joi.string().valid("Kg/Cm2", "PSI", "MWC", "Bar", "").optional(),
@@ -363,6 +371,11 @@ const plantController = {
       };
 
       await plant.update(updateData);
+
+      // Update multi-manager assignments
+      if (Array.isArray(req.body.managerIds) && plant.setManagers) {
+        await plant.setManagers(req.body.managerIds);
+      }
 
       // Fetch updated plant with associations
       const updatedPlant = await Plant.findByPk(id, {
