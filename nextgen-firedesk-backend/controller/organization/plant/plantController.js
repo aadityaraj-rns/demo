@@ -2,7 +2,7 @@
 
 // firedesk-backend/controllers/plantController.js
 const Joi = require("joi");
-const { Plant, City, State, Industry, Manager, User } = require("../models");
+const { Plant, City, State, Industry, Manager, User } = require("../../../models");
 
 const plantController = {
   async getAll(req, res, next) {
@@ -44,7 +44,8 @@ const plantController = {
           },
           {
             model: Manager,
-            as: 'manager',
+            as: 'managers', // Fixed: changed from 'manager' to 'managers'
+            through: { attributes: [] }, // Exclude junction table fields
             include: [{
               model: User,
               as: 'user',
@@ -273,7 +274,8 @@ const plantController = {
           { model: Industry, as: 'industry' },
           { 
             model: Manager, 
-            as: 'manager',
+            as: 'managers', // Fixed: changed from 'manager' to 'managers'
+            through: { attributes: [] },
             include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }]
           }
         ]
@@ -370,7 +372,8 @@ const plantController = {
           { model: Industry, as: 'industry' },
           { 
             model: Manager, 
-            as: 'manager',
+            as: 'managers', // Fixed: changed from 'manager' to 'managers'
+            through: { attributes: [] },
             include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }]
           }
         ]

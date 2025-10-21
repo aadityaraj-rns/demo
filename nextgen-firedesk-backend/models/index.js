@@ -8,11 +8,26 @@ const State = require("./admin/masterData/state");
 const City = require("./admin/masterData/city");
 const Category = require("./admin/masterData/category");
 const Industry = require("./admin/masterData/Industry");
+const Vendor = require("./admin/masterData/Vendor");
+const EdgeDevice = require("./admin/masterData/EdgeDevice");
 const Product = require("./admin/product");
 const Form = require("./admin/serviceForms/Form");
 const Client = require("./admin/client/Client");
 const Manager = require("./organization/manager/Manager");
 const Plant = require("./organization/plant/Plant");
+const Building = require("./organization/plant/Building");
+const Floor = require("./organization/plant/Floor");
+const Wing = require("./organization/plant/Wing");
+const PlantManager = require("./organization/plant/PlantManager");
+const Entrance = require("./organization/plant/Entrance");
+const DieselGenerator = require("./organization/plant/DieselGenerator");
+const Staircase = require("./organization/plant/Staircase");
+const Lift = require("./organization/plant/Lift");
+const FireSafetyForm = require("./organization/plant/FireSafetyForm");
+const ComplianceFireSafety = require("./organization/plant/ComplianceFireSafety");
+const MonitoringForm = require("./organization/plant/MonitoringForm");
+const MonitoringDevice = require("./organization/plant/MonitoringDevice");
+const Layout = require("./organization/plant/Layout");
 const Asset = require("./organization/asset/Asset");
 const GroupService = require("./organization/groupService/GroupService");
 const Ticket = require("./organization/ticket/Ticket");
@@ -31,11 +46,26 @@ const models = {
   City,
   Category,
   Industry,
+  Vendor,
+  EdgeDevice,
   Product,
   Form,
   Client,
   Manager,
   Plant,
+  Building,
+  Floor,
+  Wing,
+  PlantManager,
+  Entrance,
+  DieselGenerator,
+  Staircase,
+  Lift,
+  FireSafetyForm,
+  ComplianceFireSafety,
+  MonitoringForm,
+  MonitoringDevice,
+  Layout,
   Asset,
   GroupService,
   Ticket,
@@ -108,9 +138,95 @@ const defineAssociations = () => {
   City.hasMany(Plant, { foreignKey: "cityId", as: "plants", onDelete: "SET NULL" });
   Plant.belongsTo(City, { foreignKey: "cityId", as: "city" });
 
-  // Manager <-> Plant
-  Manager.hasMany(Plant, { foreignKey: "managerId", as: "plants", onDelete: "SET NULL" });
-  Plant.belongsTo(Manager, { foreignKey: "managerId", as: "manager", onDelete: "SET NULL" });
+  // Many-to-Many: Plant <-> Manager (through PlantManager junction table)
+  Plant.belongsToMany(Manager, { 
+    through: PlantManager, 
+    foreignKey: "plantId", 
+    otherKey: "managerId",
+    as: "managers" 
+  });
+  Manager.belongsToMany(Plant, { 
+    through: PlantManager, 
+    foreignKey: "managerId", 
+    otherKey: "plantId",
+    as: "plants" 
+  });
+
+  // Plant -> Building (One-to-Many)
+  Plant.hasMany(Building, { foreignKey: "plantId", as: "buildings", onDelete: "CASCADE" });
+  Building.belongsTo(Plant, { foreignKey: "plantId", as: "plant" });
+
+  // Building -> Floor (One-to-Many)
+  Building.hasMany(Floor, { foreignKey: "buildingId", as: "floors", onDelete: "CASCADE" });
+  Floor.belongsTo(Building, { foreignKey: "buildingId", as: "building" });
+
+  // Floor -> Wing (One-to-Many)
+  Floor.hasMany(Wing, { foreignKey: "floorId", as: "wings", onDelete: "CASCADE" });
+  Wing.belongsTo(Floor, { foreignKey: "floorId", as: "floor" });
+
+  // Plant -> Entrance (One-to-Many)
+  Plant.hasMany(Entrance, { foreignKey: "plantId", as: "entrances", onDelete: "CASCADE" });
+  Entrance.belongsTo(Plant, { foreignKey: "plantId", as: "plant" });
+
+  // Plant -> DieselGenerator (One-to-Many)
+  Plant.hasMany(DieselGenerator, { foreignKey: "plantId", as: "dieselGenerators", onDelete: "CASCADE" });
+  DieselGenerator.belongsTo(Plant, { foreignKey: "plantId", as: "plant" });
+
+  // Building -> Staircase (One-to-Many)
+  Building.hasMany(Staircase, { foreignKey: "buildingId", as: "staircases", onDelete: "CASCADE" });
+  Staircase.belongsTo(Building, { foreignKey: "buildingId", as: "building" });
+
+  // Building -> Lift (One-to-Many)
+  Building.hasMany(Lift, { foreignKey: "buildingId", as: "lifts", onDelete: "CASCADE" });
+  Lift.belongsTo(Building, { foreignKey: "buildingId", as: "building" });
+
+  // Plant -> FireSafetyForm (One-to-Many)
+  Plant.hasMany(FireSafetyForm, { foreignKey: "plantId", as: "fireSafetyForms", onDelete: "CASCADE" });
+  FireSafetyForm.belongsTo(Plant, { foreignKey: "plantId", as: "plant" });
+
+  // Vendor -> FireSafetyForm (One-to-Many)
+  Vendor.hasMany(FireSafetyForm, { foreignKey: "amcVendorId", as: "fireSafetyForms", onDelete: "SET NULL" });
+  FireSafetyForm.belongsTo(Vendor, { foreignKey: "amcVendorId", as: "amcVendor" });
+
+  // Plant -> ComplianceFireSafety (One-to-Many)
+  Plant.hasMany(ComplianceFireSafety, { foreignKey: "plantId", as: "complianceForms", onDelete: "CASCADE" });
+  ComplianceFireSafety.belongsTo(Plant, { foreignKey: "plantId", as: "plant" });
+
+  // Plant -> MonitoringForm (One-to-Many)
+  Plant.hasMany(MonitoringForm, { foreignKey: "plantId", as: "monitoringForms", onDelete: "CASCADE" });
+  MonitoringForm.belongsTo(Plant, { foreignKey: "plantId", as: "plant" });
+
+  // Building -> MonitoringForm (One-to-Many)
+  Building.hasMany(MonitoringForm, { foreignKey: "buildingId", as: "monitoringForms", onDelete: "SET NULL" });
+  MonitoringForm.belongsTo(Building, { foreignKey: "buildingId", as: "building" });
+
+  // Floor -> MonitoringForm (One-to-Many)
+  Floor.hasMany(MonitoringForm, { foreignKey: "floorId", as: "monitoringForms", onDelete: "SET NULL" });
+  MonitoringForm.belongsTo(Floor, { foreignKey: "floorId", as: "floor" });
+
+  // MonitoringForm -> MonitoringDevice (One-to-Many)
+  MonitoringForm.hasMany(MonitoringDevice, { foreignKey: "monitoringFormId", as: "devices", onDelete: "CASCADE" });
+  MonitoringDevice.belongsTo(MonitoringForm, { foreignKey: "monitoringFormId", as: "monitoringForm" });
+
+  // EdgeDevice -> MonitoringDevice (One-to-Many)
+  EdgeDevice.hasMany(MonitoringDevice, { foreignKey: "edgeDeviceId", as: "monitoringDevices", onDelete: "CASCADE" });
+  MonitoringDevice.belongsTo(EdgeDevice, { foreignKey: "edgeDeviceId", as: "edgeDevice" });
+
+  // Plant -> Layout (One-to-Many)
+  Plant.hasMany(Layout, { foreignKey: "plantId", as: "layouts", onDelete: "CASCADE" });
+  Layout.belongsTo(Plant, { foreignKey: "plantId", as: "plant" });
+
+  // Building -> Layout (One-to-Many)
+  Building.hasMany(Layout, { foreignKey: "buildingId", as: "layouts", onDelete: "SET NULL" });
+  Layout.belongsTo(Building, { foreignKey: "buildingId", as: "building" });
+
+  // Floor -> Layout (One-to-Many)
+  Floor.hasMany(Layout, { foreignKey: "floorId", as: "layouts", onDelete: "SET NULL" });
+  Layout.belongsTo(Floor, { foreignKey: "floorId", as: "floor" });
+
+  // Wing -> Layout (One-to-Many)
+  Wing.hasMany(Layout, { foreignKey: "wingId", as: "layouts", onDelete: "SET NULL" });
+  Layout.belongsTo(Wing, { foreignKey: "wingId", as: "wing" });
 
   // Plant <-> Asset
   Plant.hasMany(Asset, { foreignKey: "plantId", as: "assets" });

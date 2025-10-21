@@ -3,6 +3,7 @@ const express = require("express");
 const http = require("http"); // For creating server
 const { Server } = require("socket.io"); // Socket.IO server
 const { dbConnect, sequelize } = require("./database/index"); // ADD sequelize import here
+// Database migration fixed
 const { PORT } = require("./config/index");
 const router = require("./routes/index");
 const errorHandler = require("./middleware/errorHandler");

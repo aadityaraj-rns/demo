@@ -78,7 +78,8 @@ const plantController = {
           },
           {
             model: Manager,
-            as: 'manager',
+            as: 'managers', // Fixed: changed from 'manager' to 'managers'
+            through: { attributes: [] }, // Exclude junction table fields
             include: [{
               model: User,
               as: 'user',
@@ -128,7 +129,8 @@ const plantController = {
           },
           {
             model: Manager,
-            as: 'manager',
+            as: 'managers', // Fixed: changed from 'manager' to 'managers'
+            through: { attributes: [] },
             include: [{
               model: User,
               as: 'user',
@@ -374,7 +376,8 @@ const plantController = {
           { model: Industry, as: 'industry' },
           { 
             model: Manager, 
-            as: 'manager',
+            as: 'managers', // Fixed: changed from 'manager' to 'managers'
+            through: { attributes: [] },
             include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }]
           }
         ]
@@ -554,7 +557,8 @@ const plantController = {
           { model: Industry, as: 'industry' },
           { 
             model: Manager, 
-            as: 'manager',
+            as: 'managers', // Fixed: changed from 'manager' to 'managers'
+            through: { attributes: [] },
             include: [{ model: User, as: 'user', attributes: ['id', 'name', 'email'] }]
           }
         ]

@@ -16,7 +16,7 @@ export function MonitoringStep({ formData, setFormData }: MonitoringStepProps) {
     <div className="space-y-6">
       {/* FireDesk Edge Device ID */}
       <div className="space-y-2">
-        <Label htmlFor="edgeDeviceId">FireDesk Edge Device ID *</Label>
+        <Label htmlFor="edgeDeviceId">FireDesk Edge Device ID</Label>
         <Input 
           id="edgeDeviceId" 
           placeholder="e.g., EDGE-DEV-2024-001"
@@ -31,7 +31,7 @@ export function MonitoringStep({ formData, setFormData }: MonitoringStepProps) {
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-6">
             <div className="space-y-2">
-              <Label htmlFor="monitoringBuilding">Building *</Label>
+              <Label htmlFor="monitoringBuilding">Building</Label>
               <Input 
                 id="monitoringBuilding" 
                 placeholder="e.g., Building 1"
@@ -40,7 +40,7 @@ export function MonitoringStep({ formData, setFormData }: MonitoringStepProps) {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="specificLocation">Specific Location / Area *</Label>
+              <Label htmlFor="specificLocation">Specific Location / Area</Label>
               <Input 
                 id="specificLocation" 
                 placeholder="e.g., Main Pump Room"
@@ -51,7 +51,7 @@ export function MonitoringStep({ formData, setFormData }: MonitoringStepProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="installationDate">Installation Date *</Label>
+            <Label htmlFor="installationDate">Installation Date</Label>
             <Input 
               id="installationDate" 
               type="date" 
