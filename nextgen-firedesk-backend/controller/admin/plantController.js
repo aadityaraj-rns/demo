@@ -32,7 +32,7 @@ try {
     }
 }
 
-const { Plant, City, State, Industry, Manager, User } = models;
+const { Plant, City, State, Industry, Manager, User, PlantManager } = models;
 
 const plantController = {
   async getAll(req, res, next) {
@@ -167,14 +167,15 @@ const plantController = {
         // Basic Info
         plantId: Joi.string().optional().allow(''),
         plantName: Joi.string().required(),
-        address: Joi.string().required(),
+        address: Joi.string().optional().allow(''), // Made optional
         address2: Joi.string().optional().allow(''),
-        cityId: Joi.string().uuid().required(),
-        stateId: Joi.string().uuid().required(),
+        cityId: Joi.string().uuid().optional().allow('', null), // Made optional
+        stateId: Joi.string().uuid().optional().allow('', null), // Made optional
         zipCode: Joi.string().optional().allow(''),
         gstNo: Joi.string().optional().allow(''),
-        industryId: Joi.string().uuid().required(),
-        managerId: Joi.string().uuid().optional().allow('', null),
+        industryId: Joi.string().uuid().optional().allow('', null), // Made optional
+        managerIds: Joi.array().items(Joi.string().uuid()).optional(), // Multiple managers
+        managerId: Joi.string().uuid().optional().allow('', null), // Keep for backward compatibility
         plantImage: Joi.string().optional().allow(''),
         
         // Premises Details
@@ -295,7 +296,8 @@ const plantController = {
         zipCode,
         gstNo,
         industryId,
-        managerId,
+        managerIds,
+        managerId, // Keep for backward compatibility
         plantImage,
         status,
         ...otherFields
@@ -344,14 +346,14 @@ const plantController = {
         plantId: generatedPlantId,
         orgUserId,
         plantName,
-        address,
+        address: address || null,
         address2: address2 || null,
-        cityId,
-        stateId,
+        cityId: cityId || null,
+        stateId: stateId || null,
         zipCode: zipCode || null,
         gstNo: gstNo || null,
-        industryId,
-        managerId: managerId || null,
+        industryId: industryId || null,
+        managerId: managerId || null, // Keep for backward compatibility
         plantImage: plantImage || null,
         status: status || 'Draft',
         ...otherFields,
@@ -364,6 +366,15 @@ const plantController = {
       };
 
       const newPlant = await Plant.create(plantData);
+
+      // Handle multiple managers if provided
+      if (managerIds && managerIds.length > 0) {
+        const plantManagerRecords = managerIds.map(managerId => ({
+          plantId: newPlant.id,
+          managerId: managerId
+        }));
+        await PlantManager.bulkCreate(plantManagerRecords);
+      }
 
       // Log activity
       await ActivityService.logPlantCreated(newPlant, req.user);
@@ -413,7 +424,8 @@ const plantController = {
         zipCode: Joi.string().optional().allow(''),
         gstNo: Joi.string().optional().allow(''),
         industryId: Joi.string().uuid().optional(),
-        managerId: Joi.string().uuid().optional().allow('', null),
+        managerIds: Joi.array().items(Joi.string().uuid()).optional(), // Multiple managers
+        managerId: Joi.string().uuid().optional().allow('', null), // Keep for backward compatibility
         plantImage: Joi.string().optional().allow(''),
         
         // Premises Details
@@ -531,11 +543,30 @@ const plantController = {
       if (updateData.liftAvailable === 'yes') updateData.liftAvailable = true;
       if (updateData.liftAvailable === 'no') updateData.liftAvailable = false;
 
+      // Handle multiple managers if provided
+      if (updateData.managerIds && Array.isArray(updateData.managerIds)) {
+        // Remove existing manager associations
+        await PlantManager.destroy({ where: { plantId: id } });
+        
+        // Add new manager associations
+        if (updateData.managerIds.length > 0) {
+          const plantManagerRecords = updateData.managerIds.map(managerId => ({
+            plantId: id,
+            managerId: managerId
+          }));
+          await PlantManager.bulkCreate(plantManagerRecords);
+        }
+        
+        // Remove from updateData as it's handled separately
+        delete updateData.managerIds;
+      }
+
       // Remove fields that shouldn't be updated or don't exist in model
       delete updateData.city;
       delete updateData.state;
       delete updateData.industry;
       delete updateData.manager;
+      delete updateData.managers; // Remove managers as it's handled separately
       delete updateData.createdAt;
       delete updateData.updatedAt;
       delete updateData.plantId; // Don't allow changing generated ID

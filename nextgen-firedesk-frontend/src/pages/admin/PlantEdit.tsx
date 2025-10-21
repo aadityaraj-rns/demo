@@ -93,6 +93,13 @@ export default function PlantEdit() {
             }
           });
           
+          // Handle multiple managers - extract manager IDs from the managers array
+          if (plant.managers && Array.isArray(plant.managers)) {
+            cleanedPlant.managerIds = plant.managers.map((manager: any) => manager.id);
+          } else {
+            cleanedPlant.managerIds = [];
+          }
+          
           console.log('Cleaned plant data:', cleanedPlant);
           console.log('Premises data:', {
             mainBuildings: cleanedPlant.mainBuildings,

@@ -31,7 +31,7 @@ interface Plant {
   cityId: string;
   stateId: string;
   industryId: string;
-  status: 'Active' | 'Deactive';
+  status: 'Active' | 'Deactive' | 'Draft';
   city?: {
     id: string;
     cityName: string;
@@ -45,6 +45,14 @@ interface Plant {
     id: string;
     industryName: string;
   };
+  managers?: Array<{
+    id: string;
+    user?: {
+      name: string;
+      email: string;
+    };
+  }>;
+  // Keep for backward compatibility
   manager?: {
     id: string;
     user?: {

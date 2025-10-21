@@ -290,7 +290,77 @@ export default function PlantCreate() {
     }
   };
 
-  // Save and submit function implementations ...
+  const handleSaveDraft = async () => {
+    setIsSaving(true);
+    try {
+      const plantData = {
+        ...formData,
+        status: 'Draft'
+      };
+      
+      console.log('Saving draft with data:', plantData);
+      
+      const response = await api.post('/plant', plantData);
+      
+      toast({
+        title: "Success",
+        description: "Plant saved as draft successfully!",
+      });
+      
+      navigate('/admin/plants');
+    } catch (error: any) {
+      console.error('Failed to save draft:', error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to save plant as draft",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveAndContinue = () => {
+    const currentIndex = steps.findIndex(s => s.id === activeTab);
+    const nextStep = steps.find((s, idx) => idx > currentIndex && !s.hidden);
+    
+    if (nextStep) {
+      setActiveTab(nextStep.id);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else {
+      handleFinalSubmit();
+    }
+  };
+
+  const handleFinalSubmit = async () => {
+    setIsSaving(true);
+    try {
+      const plantData = {
+        ...formData,
+        status: 'Active'
+      };
+      
+      console.log('Final submit with data:', plantData);
+      
+      const response = await api.post('/plant', plantData);
+      
+      toast({
+        title: "Success",
+        description: "Plant created successfully!",
+      });
+      
+      navigate('/admin/plants');
+    } catch (error: any) {
+      console.error('Failed to create plant:', error);
+      toast({
+        title: "Error",
+        description: error.response?.data?.message || "Failed to create plant",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col bg-background">
@@ -402,17 +472,13 @@ export default function PlantCreate() {
               <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-border">
                 <Button
                   variant="outline"
-                  onClick={() => {
-                    /* handleSaveDraft function */
-                  }}
+                  onClick={handleSaveDraft}
                   disabled={isSaving}
                 >
                   Save as Draft
                 </Button>
                 <Button
-                  onClick={() => {
-                    /* handleSaveAndContinue function */
-                  }}
+                  onClick={handleSaveAndContinue}
                   disabled={isSaving}
                 >
                   {isSaving
