@@ -62,3 +62,4 @@ Thumbs.db
 # Logs
 # -----------------------
 *.log
+nextgen-firedesk-backend/controller/firebasePushNotification/*.json
